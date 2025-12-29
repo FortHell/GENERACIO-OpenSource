@@ -16,3 +16,9 @@ You can also help develop the project!
 ## Current progress
 + Very basic and barebones OpenGL/OpenXR engine in C++ **(KI ENGINE)**
 + More coming soon
+
+## KI ENGINE
+OpenGL and OpenXR engine, all in C++.
+
+I recommend using SteamVR as the OpenXR runtime, and also using SteamVR's VR View to check the game view.
+If you don't have a VR headset, but still want to test the code, use [this](https://github.com/username223/SteamVRNoHeadset).
