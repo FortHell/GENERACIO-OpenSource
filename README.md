@@ -11,6 +11,6 @@ This repository contains all the tools I've been working on for my project **GEN
 All of the code is open source and free to use in your own project.
 This is also where I'll publish my progress with the project.
 
-## Status of current progress
+## Current progress
 + Very basic and barebones OpenGL/OpenXR engine in C++ **(KI ENGINE)**
 + More coming soon
