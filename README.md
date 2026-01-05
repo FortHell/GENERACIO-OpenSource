@@ -21,4 +21,6 @@ You can also help develop the project!
 OpenGL and OpenXR engine, all in C++.
 
 I recommend using SteamVR as the OpenXR runtime, and also using SteamVR's VR View to check the game view.
-If you don't have a VR headset, but still want to test the code, use [this](https://github.com/username223/SteamVRNoHeadset).
+If you don't have a VR headset, but still want to test the code, use a [Dummy HMD](https://github.com/username223/SteamVRNoHeadset).
+
+If you're using Visual Studio, make sure to set it to Release x64 before building!
