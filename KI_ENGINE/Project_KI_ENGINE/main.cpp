@@ -38,7 +38,12 @@ static const uint16_t cubeIdx[] = {
     0,3,7, 7,4,0  // left
 };
 
-// very simple vertex+frag shader
+static const float floorVerts[] = {
+    -5.f, -0.1f, -5.f,  5.f, -0.1f, -5.f,  5.f, -0.1f,  5.f, -5.f, -0.1f,  5.f
+};
+static const uint16_t floorIdx[] = { 0,1,2, 2,3,0 };
+
+// Vertex + fragment shader
 static const char* VERT = R"(
 #version 460 core
 layout(location=0) in vec3 pos;
@@ -48,10 +53,11 @@ void main() { gl_Position = mvp * vec4(pos,1.0); }
 static const char* FRAG = R"(
 #version 460 core
 out vec4 col;
-void main() { col = vec4(0.1,0.7,1.0,1.0); }
+uniform vec3 objColor;
+void main() { col = vec4(objColor, 1.0); }
 )";
 
-// fullscreen blit shader
+// Fullscreen blit shader
 static const char* MIRROR_VS = R"(
 #version 460 core
 const vec2 v[3] = vec2[]( vec2(-1,-1), vec2(3,-1), vec2(-1,3));
@@ -68,7 +74,7 @@ uniform sampler2DArray texArr;
 void main(){ col = texture(texArr, vec3(uv,0)); }
 )";
 
-// make GL shader
+// Make GL shader
 GLuint makeShader(const char* vs, const char* fs) {
     GLuint v = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(v, 1, &vs, nullptr);
@@ -111,28 +117,25 @@ glm::mat4 xrProj(const XrFovf& f) {
 }
 
 int main() {
-    // FPS counter init
-    using clock = std::chrono::steady_clock;
-    int frames = 0;
-    auto lastTime = clock::now();
-
     // GL window
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* win = glfwCreateWindow(400, 200, "KI ENGINE VR View", nullptr, nullptr); // Needs fixing, using SteamVR's VR View for now.
+    glfwWindowHint(GLFW_SAMPLES, 4);
+    // Temporary size
+    GLFWwindow* win = glfwCreateWindow(100, 100, "KI ENGINE VR View", nullptr, nullptr);
     glfwMakeContextCurrent(win);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glEnable(GL_DEPTH_TEST);
-    /*glEnable(GL_CULL_FACE); // Will fix later. Or not.
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CW);*/
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_MULTISAMPLE);
     glfwSwapInterval(0);
 
     // Shaders
     GLuint shp = makeShader(VERT, FRAG);
     GLuint mvpLoc = glGetUniformLocation(shp, "mvp");
+    GLuint colLoc = glGetUniformLocation(shp, "objColor");
 
     GLuint mirror = makeShader(MIRROR_VS, MIRROR_FS);
     GLuint mirrorVAO; glGenVertexArrays(1, &mirrorVAO);
@@ -149,6 +152,19 @@ int main() {
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIdx), cubeIdx, GL_STATIC_DRAW);
+
+	// Floor Mesh
+    GLuint fvao, fvbo, febo;
+    glGenVertexArrays(1, &fvao);
+    glBindVertexArray(fvao);
+    glGenBuffers(1, &fvbo);
+    glBindBuffer(GL_ARRAY_BUFFER, fvbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floorVerts), floorVerts, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glGenBuffers(1, &febo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, febo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(floorIdx), floorIdx, GL_STATIC_DRAW);
 
     // XR Instance
     XrInstance inst;
@@ -191,7 +207,7 @@ int main() {
     // Reference space
     XrSpace space;
     XrReferenceSpaceCreateInfo rci{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
-    rci.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    rci.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
     rci.poseInReferenceSpace.position = { 0, 0, 0 };
     rci.poseInReferenceSpace.orientation = { 0,0,0,1 };
     xrCreateReferenceSpace(sess, &rci, &space);
@@ -215,6 +231,22 @@ int main() {
 
     int W = vcfg[0].recommendedImageRectWidth;
     int H = vcfg[0].recommendedImageRectHeight;
+
+    const GLFWvidmode* vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+    // Bearable size for monitors
+	float aspectRatio = (float)W / (float)H;
+    int mirrorH = (int)std::floor(vidmode->height * 0.75f);
+    int mirrorW = (int)std::floor(mirrorH * aspectRatio);
+
+    // Helpful info
+    std::cout << "\nPER EYE PROPERTIES\nDecimal Aspect Ratio: " << aspectRatio << "\n";
+    std::cout << "Simplied Aspect Ratio: " << aspectRatio * 9 << ":9" << "\n";
+	std::cout << "VR Resolution: " << W << "x" << H << "\n";
+    std::cout << "Window Resolution: " << mirrorW << "x" << mirrorH << "\n\n";
+
+    // Resize to actual resolution
+    glfwSetWindowSize(win, mirrorW, mirrorH);
 
     // 1 swapchain, 2 array layers
     XrSwapchain sc;
@@ -242,6 +274,26 @@ int main() {
     glGenRenderbuffers(1, &depth);
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, W, H);
+
+	// Multisampled FBO (4x MSAA)
+    GLuint msaaFBO, msaaColor, msaaDepth;
+    glGenFramebuffers(1, &msaaFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
+
+    // Color Buffer (4x Samples)
+    glGenRenderbuffers(1, &msaaColor);
+    glBindRenderbuffer(GL_RENDERBUFFER, msaaColor);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_SRGB8_ALPHA8, W, H);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, msaaColor);
+
+    // Depth Buffer (4x Samples)
+    glGenRenderbuffers(1, &msaaDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, msaaDepth);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, W, H);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, msaaDepth);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "MSAA FBO Failed!\n";
 
     // View + Layer views
     std::vector<XrView> views(viewCount, { XR_TYPE_VIEW });
@@ -277,12 +329,7 @@ int main() {
             wi.timeout = XR_INFINITE_DURATION;
             xrWaitSwapchainImage(sc, &wi);
 
-            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                scImgs[idx].image, 0, eye);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER,
-                GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
-
+            glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
             glViewport(0, 0, W, H);
             glClearColor(0.02f, 0.02f, 0.03f, 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -299,15 +346,37 @@ int main() {
                 glm::translate(glm::mat4(1), p) * glm::mat4_cast(q));
             glm::mat4 P = xrProj(views[eye].fov);
 
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0, 0, -2.0f));
+            glUseProgram(shp);
+
+            // Draw floor
+            glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
+            glm::mat4 floorMVP = P * V * floorM;
+            
+            glUniform3f(colLoc, 0.1f, 0.1f, 0.1f);
+            glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(floorMVP));
+            glBindVertexArray(fvao);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+			// Draw cube
+            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0, 1.9f, -0.7f));
             M = glm::scale(M, glm::vec3(0.2f));
-            M = glm::rotate(M, (float)glfwGetTime(), glm::vec3(0.3, 1, 0.5));
+            M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
             glm::mat4 MVP = P * V * M;
 
-            glUseProgram(shp);
+            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
             glBindVertexArray(vao);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+            glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                scImgs[idx].image, 0, eye);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, msaaFBO);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+            glBlitFramebuffer(0, 0, W, H, 0, 0, W, H, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
             XrSwapchainImageReleaseInfo r{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
             xrReleaseSwapchainImage(sc, &r);
@@ -319,9 +388,6 @@ int main() {
             lviews[eye].subImage.imageRect.extent = { W,H };
             lviews[eye].subImage.imageArrayIndex = eye;
         }
-
-        //printf("Eye 0: %g\n", views[0].pose.position.x); // Only for debugging!
-        //printf("Eye 1: %g\n", views[1].pose.position.x);
 
         // Submit
         XrCompositionLayerProjection layer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
@@ -340,7 +406,7 @@ int main() {
 
         // Mirror left eye
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, 1920, 1080);
+        glViewport(0, 0, mirrorW, mirrorH);
         glDisable(GL_DEPTH_TEST);
         glUseProgram(mirror);
         glActiveTexture(GL_TEXTURE0);
@@ -350,18 +416,6 @@ int main() {
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         glfwSwapBuffers(win);
-
-		// FPS counter. Don't need it? Comment it out.
-        // p.s. this is not the headset refresh rate!
-        frames++;
-
-        auto now = clock::now();
-        std::chrono::duration<float> delta = now - lastTime;
-        if (delta.count() >= 1.0f) {
-            std::cout << "FPS: " << frames << "\n";
-            frames = 0;
-            lastTime = now;
-        }
     }
 
     glfwTerminate();
