@@ -8,19 +8,18 @@ This is the open-source version of the project, meaning only selected parts of m
 
 ## Introduction to GENERACIO-OpenSource
 This repository contains all the tools I've been working on for my project **GENERACIO**.
-All of the code is open source and free to use in your own project.
-This is also where I'll publish my progress with the project.
+All of the code is open-source and free to use in your own project.
 
-You can also help develop the project!
+You can also help develop the project by creating a pull request!
 
 ## Current progress
-+ Very basic and barebones OpenGL/OpenXR engine in C++ **(KI ENGINE)**
++ A lightweight, extensible OpenGL/OpenXR engine in C++ **(KI ENGINE)**
 + More coming soon
 
 ## KI ENGINE
 OpenGL and OpenXR engine, all in C++.
 
-I recommend using SteamVR as the OpenXR runtime, and also using SteamVR's VR View to check the game view.
+I recommend using **SteamVR** as the OpenXR runtime.
 If you don't have a VR headset, but still want to test the code, use a [Dummy HMD](https://github.com/username223/SteamVRNoHeadset).
 
-If you're using Visual Studio, make sure to set it to Release x64 before building!
+If you're using Visual Studio, make sure to set it to **Release x64** before building!
