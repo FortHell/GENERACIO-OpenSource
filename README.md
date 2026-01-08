@@ -19,6 +19,8 @@ You can also help develop the project by creating a pull request!
 ## KI ENGINE
 OpenGL and OpenXR engine, all in C++.
 
+![GIF of KI ENGINE example showcase](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExcGdwNTdoN3dzYXBrOHd4bGpwbXpzZmpoc3UzbXYwaWM0d3IxbzdjaiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UoXoTTDmb61taaRLRq/giphy.gif)
+
 I recommend using **SteamVR** as the OpenXR runtime.
 If you don't have a VR headset, but still want to test the code, use a [Dummy HMD](https://github.com/username223/SteamVRNoHeadset).
 
