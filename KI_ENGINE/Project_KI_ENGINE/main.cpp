@@ -9,11 +9,49 @@
 #include <openxr/openxr_platform.h>
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+std::string loadShader(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open shader: " << path << std::endl;
+        return "";
+    }
+    std::stringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+}
+
+GLuint makeShader(const char* vs, const char* fs) {
+    GLuint v = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(v, 1, &vs, nullptr);
+    glCompileShader(v);
+
+    GLuint f = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(f, 1, &fs, nullptr);
+    glCompileShader(f);
+
+    GLuint p = glCreateProgram();
+    glAttachShader(p, v);
+    glAttachShader(p, f);
+    glLinkProgram(p);
+
+    glDeleteShader(v);
+    glDeleteShader(f);
+    return p;
+}
+
+GLuint loadShaderProgram(const std::string& vertPath, const std::string& fragPath) {
+    std::string vertSrc = loadShader(vertPath);
+    std::string fragSrc = loadShader(fragPath);
+    return makeShader(vertSrc.c_str(), fragSrc.c_str());
+}
 
 static const float nearZ = 0.1f;
 static const float farZ = 50.f;
@@ -42,57 +80,6 @@ static const float floorVerts[] = {
     -5.f, -0.1f, -5.f,  5.f, -0.1f, -5.f,  5.f, -0.1f,  5.f, -5.f, -0.1f,  5.f
 };
 static const uint16_t floorIdx[] = { 0,1,2, 2,3,0 };
-
-// Vertex + fragment shader
-static const char* VERT = R"(
-#version 460 core
-layout(location=0) in vec3 pos;
-uniform mat4 mvp;
-void main() { gl_Position = mvp * vec4(pos,1.0); }
-)";
-static const char* FRAG = R"(
-#version 460 core
-out vec4 col;
-uniform vec3 objColor;
-void main() { col = vec4(objColor, 1.0); }
-)";
-
-// Fullscreen blit shader
-static const char* MIRROR_VS = R"(
-#version 460 core
-const vec2 v[3] = vec2[]( vec2(-1,-1), vec2(3,-1), vec2(-1,3));
-out vec2 uv;
-void main(){
-    uv = (v[gl_VertexID] + 1.0) * 0.5;
-    gl_Position = vec4(v[gl_VertexID],0,1);
-})";
-static const char* MIRROR_FS = R"(
-#version 460 core
-in vec2 uv;
-out vec4 col;
-uniform sampler2DArray texArr;
-void main(){ col = texture(texArr, vec3(uv,0)); }
-)";
-
-// Make GL shader
-GLuint makeShader(const char* vs, const char* fs) {
-    GLuint v = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(v, 1, &vs, nullptr);
-    glCompileShader(v);
-
-    GLuint f = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(f, 1, &fs, nullptr);
-    glCompileShader(f);
-
-    GLuint p = glCreateProgram();
-    glAttachShader(p, v);
-    glAttachShader(p, f);
-    glLinkProgram(p);
-
-    glDeleteShader(v);
-    glDeleteShader(f);
-    return p;
-}
 
 // XR projection matrix
 glm::mat4 xrProj(const XrFovf& f) {
@@ -130,15 +117,18 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glfwSwapInterval(0);
 
     // Shaders
-    GLuint shp = makeShader(VERT, FRAG);
+    GLuint shp = loadShaderProgram("vertex.glsl", "fragment.glsl");
     GLuint mvpLoc = glGetUniformLocation(shp, "mvp");
     GLuint colLoc = glGetUniformLocation(shp, "objColor");
 
-    GLuint mirror = makeShader(MIRROR_VS, MIRROR_FS);
-    GLuint mirrorVAO; glGenVertexArrays(1, &mirrorVAO);
+    GLuint mirror = loadShaderProgram("vertex_mirror.glsl", "fragment_mirror.glsl");
+    GLuint mirrorVAO;
+    glGenVertexArrays(1, &mirrorVAO);
 
     // Cube Mesh
     GLuint vao, vbo, ebo;
@@ -352,18 +342,29 @@ int main() {
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
             glm::mat4 floorMVP = P * V * floorM;
             
-            glUniform3f(colLoc, 0.1f, 0.1f, 0.1f);
+            glUniform4f(colLoc, 0.1f, 0.1f, 0.1f, 1.0f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(floorMVP));
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-			// Draw cube
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0, 1.9f, -0.7f));
+			// Draw cube 1
+            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0, 1.75f, -0.7f));
             M = glm::scale(M, glm::vec3(0.2f));
             M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
             glm::mat4 MVP = P * V * M;
 
-            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
+            glUniform4f(colLoc, 0.1f, 0.7f, 1.0f, 0.2f);
+            glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+            glBindVertexArray(vao);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+
+            // Draw cube 2
+            M = glm::translate(glm::mat4(1), glm::vec3(0.2f, 1.65f, -1.3f));
+            M = glm::scale(M, glm::vec3(0.2f));
+            M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
+            MVP = P * V * M;
+
+            glUniform4f(colLoc, 0.1f, 0.7f, 1.0f, 1.0f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
             glBindVertexArray(vao);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);

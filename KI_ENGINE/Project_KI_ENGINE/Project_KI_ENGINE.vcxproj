@@ -137,14 +137,6 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="tiny_obj_loader.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="shaders\forward_plus.comp" />
-    <None Include="shaders\fragment.glsl" />
-    <None Include="shaders\vertex.glsl" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="models\cube.obj">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DeploymentContent>
@@ -164,6 +156,12 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="fragment.glsl" />
+    <None Include="fragment_mirror.glsl" />
+    <None Include="vertex.glsl" />
+    <None Include="vertex_mirror.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

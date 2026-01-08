@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Models">
+      <UniqueIdentifier>{5803137f-fb4f-40bd-9c74-3737bd0c1539}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -20,18 +23,20 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="tiny_obj_loader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <Image Include="models\cube3.obj">
+      <Filter>Models</Filter>
+    </Image>
+    <Image Include="models\cube.obj">
+      <Filter>Models</Filter>
+    </Image>
+    <Image Include="models\cube2.obj">
+      <Filter>Models</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\fragment.glsl" />
-    <None Include="shaders\vertex.glsl" />
-    <None Include="shaders\forward_plus.comp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="models\cube.obj" />
-    <Image Include="models\cube2.obj" />
-    <Image Include="models\cube3.obj" />
+    <None Include="vertex.glsl" />
+    <None Include="fragment.glsl" />
+    <None Include="vertex_mirror.glsl" />
+    <None Include="fragment_mirror.glsl" />
   </ItemGroup>
 </Project>
