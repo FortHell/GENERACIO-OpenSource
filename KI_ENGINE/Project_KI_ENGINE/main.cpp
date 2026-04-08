@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 #include <vector>
 #include <chrono>
 #include <glm/glm.hpp>
@@ -56,30 +57,85 @@ GLuint loadShaderProgram(const std::string& vertPath, const std::string& fragPat
 static const float nearZ = 0.1f;
 static const float farZ = 50.f;
 
-// cube vertex + index data
-static const float cubeVerts[] = {
-    -0.5f,-0.5f,-0.5f,
-     0.5f,-0.5f,-0.5f,
-     0.5f, 0.5f,-0.5f,
-    -0.5f, 0.5f,-0.5f,
-    -0.5f,-0.5f, 0.5f,
-     0.5f,-0.5f, 0.5f,
-     0.5f, 0.5f, 0.5f,
-    -0.5f, 0.5f, 0.5f
-};
-static const uint16_t cubeIdx[] = {
-    0,1,2, 2,3,0, // back
-    4,5,6, 6,7,4, // front
-    3,2,6, 6,7,3, // top
-    0,1,5, 5,4,0, // bottom
-    1,2,6, 6,5,1, // right
-    0,3,7, 7,4,0  // left
+struct Vertex {
+    glm::vec3 position;
+    glm::vec3 normal;
 };
 
+std::vector<Vertex> loadOBJ(const char* path) {
+    std::vector<glm::vec3> temp_vertices;
+    std::vector<glm::vec3> temp_normals;
+    std::vector<Vertex> out_vertices;
+
+    std::ifstream file(path);
+    std::string line;
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string type;
+        ss >> type;
+
+        if (type == "v") {
+            glm::vec3 v;
+            ss >> v.x >> v.y >> v.z;
+            temp_vertices.push_back(v);
+        }
+        else if (type == "vn") {
+            glm::vec3 n;
+            ss >> n.x >> n.y >> n.z;
+            temp_normals.push_back(n);
+        }
+        else if (type == "f") {
+            std::vector<std::pair<int, int>> faceVerts; // {vIdx, nIdx}
+
+            std::string vertexData;
+            while (ss >> vertexData) {
+                int vIdx = 0, tIdx = 0, nIdx = 0;
+
+                if (sscanf_s(vertexData.c_str(), "%d/%d/%d", &vIdx, &tIdx, &nIdx) == 3) {
+                    // v/vt/vn
+                }
+                else if (sscanf_s(vertexData.c_str(), "%d//%d", &vIdx, &nIdx) == 2) {
+                    // v//vn
+                }
+                else if (sscanf_s(vertexData.c_str(), "%d/%d", &vIdx, &tIdx) == 2) {
+                    // v/vt (no normal)
+                    nIdx = 0;
+                }
+                else {
+                    sscanf_s(vertexData.c_str(), "%d", &vIdx);
+                    // v only
+                }
+
+                faceVerts.push_back({ vIdx, nIdx });
+            }
+
+            // Fan triangulation for quads and ngons
+            for (size_t i = 1; i + 1 < faceVerts.size(); i++) {
+                auto emit = [&](std::pair<int, int> vi) {
+                    glm::vec3 pos = temp_vertices[vi.first - 1];
+                    glm::vec3 nrm = vi.second > 0
+                        ? temp_normals[vi.second - 1]
+                        : glm::vec3(0, 1, 0);
+                    out_vertices.push_back({ pos, nrm });
+                    };
+                emit(faceVerts[0]);
+                emit(faceVerts[i]);
+                emit(faceVerts[i + 1]);
+            }
+        }
+    }
+    return out_vertices;
+}
+
 static const float floorVerts[] = {
-    -5.f, -0.1f, -5.f,  5.f, -0.1f, -5.f,  5.f, -0.1f,  5.f, -5.f, -0.1f,  5.f
+    // Position            // Normal (Straight Up)
+    -5.f, -0.1f, -5.f,     0.0f, 1.0f, 0.0f,
+     5.f, -0.1f, -5.f,     0.0f, 1.0f, 0.0f,
+     5.f, -0.1f,  5.f,     0.0f, 1.0f, 0.0f,
+    -5.f, -0.1f,  5.f,     0.0f, 1.0f, 0.0f
 };
-static const uint16_t floorIdx[] = { 0,1,2, 2,3,0 };
+
+static const uint16_t floorIdx[] = { 0, 1, 2, 2, 3, 0 };
 
 // XR projection matrix
 glm::mat4 xrProj(const XrFovf& f) {
@@ -103,6 +159,14 @@ glm::mat4 xrProj(const XrFovf& f) {
     return proj;
 }
 
+XrActionSet actionSet;
+XrAction handPoseAction;
+
+XrSpace leftHandSpace = XR_NULL_HANDLE;
+XrSpace rightHandSpace = XR_NULL_HANDLE;
+
+XrPath handSubactionPaths[2];
+
 int main() {
     // GL window
     glfwInit();
@@ -115,10 +179,10 @@ int main() {
     glfwMakeContextCurrent(win);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_MULTISAMPLE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
     glfwSwapInterval(0);
 
     // Shaders
@@ -130,28 +194,52 @@ int main() {
     GLuint mirrorVAO;
     glGenVertexArrays(1, &mirrorVAO);
 
+    GLint success;
+    glGetProgramiv(shp, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(shp, 512, NULL, infoLog);
+        std::cout << "SHADER LINK ERROR: " << infoLog << std::endl;
+    }
+
     // Cube Mesh
-    GLuint vao, vbo, ebo;
+    std::vector<Vertex> meshData = loadOBJ("cube.obj");
+
+    std::cout << "Loaded OBJ: " << meshData.size() << " vertices." << std::endl;
+
+    GLuint vao, vbo;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
+
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVerts), cubeVerts, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIdx), cubeIdx, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, meshData.size() * sizeof(Vertex), meshData.data(), GL_STATIC_DRAW);
 
-	// Floor Mesh
+    // Position (Location 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+
+    // Normal (Location 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(1);
+
+    // Floor Mesh
     GLuint fvao, fvbo, febo;
     glGenVertexArrays(1, &fvao);
     glBindVertexArray(fvao);
+
     glGenBuffers(1, &fvbo);
     glBindBuffer(GL_ARRAY_BUFFER, fvbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(floorVerts), floorVerts, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+    // Position Attribute (Location 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // Normal Attribute (Location 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
     glGenBuffers(1, &febo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, febo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(floorIdx), floorIdx, GL_STATIC_DRAW);
@@ -167,11 +255,58 @@ int main() {
     xrCreateInstance(&ici, &inst);
     std::cout << "XR instance OK\n";
 
+    // --- Action Set ---
+    XrActionSetCreateInfo asci{ XR_TYPE_ACTION_SET_CREATE_INFO };
+    strcpy_s(asci.actionSetName, "gameplay");
+    strcpy_s(asci.localizedActionSetName, "Gameplay");
+    asci.priority = 0;
+    xrCreateActionSet(inst, &asci, &actionSet);
+
+    // --- Hand Pose Action ---
+    xrStringToPath(inst, "/user/hand/left", &handSubactionPaths[0]);
+    xrStringToPath(inst, "/user/hand/right", &handSubactionPaths[1]);
+
+    XrActionCreateInfo aci{ XR_TYPE_ACTION_CREATE_INFO };
+    aci.actionType = XR_ACTION_TYPE_POSE_INPUT;
+    strcpy_s(aci.actionName, "hand_pose");
+    strcpy_s(aci.localizedActionName, "Hand Pose");
+    aci.countSubactionPaths = 2;
+    aci.subactionPaths = handSubactionPaths;
+
+    xrCreateAction(actionSet, &aci, &handPoseAction);
+
     // XR system
     XrSystemId sysId;
     XrSystemGetInfo sgi{ XR_TYPE_SYSTEM_GET_INFO };
     sgi.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
     xrGetSystem(inst, &sgi, &sysId);
+
+    XrPath profile;
+    xrStringToPath(inst,
+        "/interaction_profiles/valve/index_controller",
+        &profile);
+
+    XrPath leftGripPose, rightGripPose;
+    xrStringToPath(inst,
+        "/user/hand/left/input/grip/pose",
+        &leftGripPose);
+    xrStringToPath(inst,
+        "/user/hand/right/input/grip/pose",
+        &rightGripPose);
+
+    XrActionSuggestedBinding bindings[] = {
+        { handPoseAction, leftGripPose },
+        { handPoseAction, rightGripPose }
+    };
+
+    XrInteractionProfileSuggestedBinding suggested{
+        XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING
+    };
+    suggested.interactionProfile = profile;
+    suggested.suggestedBindings = bindings;
+    suggested.countSuggestedBindings = 2;
+
+    xrSuggestInteractionProfileBindings(inst, &suggested);
 
     // Required GL version query
     PFN_xrGetOpenGLGraphicsRequirementsKHR reqFn;
@@ -194,6 +329,13 @@ int main() {
     xrCreateSession(inst, &sci, &sess);
     std::cout << "XR session OK\n";
 
+    XrSessionActionSetsAttachInfo attach{
+    XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO
+    };
+    attach.countActionSets = 1;
+    attach.actionSets = &actionSet;
+    xrAttachSessionActionSets(sess, &attach);
+
     // Reference space
     XrSpace space;
     XrReferenceSpaceCreateInfo rci{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
@@ -201,6 +343,16 @@ int main() {
     rci.poseInReferenceSpace.position = { 0, 0, 0 };
     rci.poseInReferenceSpace.orientation = { 0,0,0,1 };
     xrCreateReferenceSpace(sess, &rci, &space);
+
+    XrActionSpaceCreateInfo asci2{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
+    asci2.action = handPoseAction;
+    asci2.poseInActionSpace.orientation = { 0,0,0,1 };
+
+    asci2.subactionPath = handSubactionPaths[0];
+    xrCreateActionSpace(sess, &asci2, &leftHandSpace);
+
+    asci2.subactionPath = handSubactionPaths[1];
+    xrCreateActionSpace(sess, &asci2, &rightHandSpace);
 
     // Begin
     XrSessionBeginInfo bi{ XR_TYPE_SESSION_BEGIN_INFO };
@@ -301,6 +453,12 @@ int main() {
         XrFrameBeginInfo fbi{ XR_TYPE_FRAME_BEGIN_INFO };
         xrBeginFrame(sess, &fbi);
 
+        XrActiveActionSet activeSet{ actionSet, XR_NULL_PATH };
+        XrActionsSyncInfo sync{ XR_TYPE_ACTIONS_SYNC_INFO };
+        sync.countActiveActionSets = 1;
+        sync.activeActionSets = &activeSet;
+        xrSyncActions(sess, &sync);
+
         // Locate views
         uint32_t outCount;
         XrViewLocateInfo vli{ XR_TYPE_VIEW_LOCATE_INFO };
@@ -310,7 +468,30 @@ int main() {
         XrViewState vs{ XR_TYPE_VIEW_STATE };
         xrLocateViews(sess, &vli, &vs, viewCount, &outCount, views.data());
 
-        // Render eyes
+        XrSpaceLocation leftHandLoc{ XR_TYPE_SPACE_LOCATION };
+        XrSpaceLocation rightHandLoc{ XR_TYPE_SPACE_LOCATION };
+
+        xrLocateSpace(leftHandSpace, space,
+            fs.predictedDisplayTime, &leftHandLoc);
+        xrLocateSpace(rightHandSpace, space,
+            fs.predictedDisplayTime, &rightHandLoc);
+
+        bool leftValid =
+            (leftHandLoc.locationFlags &
+                XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
+            (leftHandLoc.locationFlags &
+                XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
+
+        bool rightValid =
+            (rightHandLoc.locationFlags &
+                XR_SPACE_LOCATION_POSITION_VALID_BIT) &&
+            (rightHandLoc.locationFlags &
+                XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
+
+        GLuint sunDirLoc = glGetUniformLocation(shp, "sunDir");
+        GLuint modelLoc = glGetUniformLocation(shp, "model");
+
+        // Render eyes and also all objects in scene
         for (uint32_t eye = 0;eye < outCount;eye++) {
             uint32_t idx;
             XrSwapchainImageAcquireInfo ac{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
@@ -337,37 +518,82 @@ int main() {
             glm::mat4 P = xrProj(views[eye].fov);
 
             glUseProgram(shp);
+            glUniform3f(glGetUniformLocation(shp, "sunColor"), 1.0f, 0.95f, 0.8f);
 
             // Draw floor
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
             glm::mat4 floorMVP = P * V * floorM;
-            
-            glUniform4f(colLoc, 0.1f, 0.1f, 0.1f, 1.0f);
+
+            glUniform3f(colLoc, 0.1f, 0.1f, 0.1f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(floorMVP));
+
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(floorM));
+            glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
+            auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
+                {
+                    glm::quat q(
+                        loc.pose.orientation.w,
+                        loc.pose.orientation.x,
+                        loc.pose.orientation.y,
+                        loc.pose.orientation.z
+                    );
+
+                    glm::vec3 p(
+                        loc.pose.position.x,
+                        loc.pose.position.y,
+                        loc.pose.position.z
+                    );
+
+                    glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
+                    M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
+                    glm::mat4 MVP = P * V * M;
+
+                    glUniform3fv(colLoc, 1, &color.x);
+                    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+
+                    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
+
+                    glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+
+                    glBindVertexArray(vao);
+                    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+                };
+
+            if (leftValid)
+                drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
+
+            if (rightValid)
+                drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
+
 			// Draw cube 1
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0, 1.75f, -0.7f));
+            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0.4f, 1.45f, -1.3f));
             M = glm::scale(M, glm::vec3(0.2f));
             M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
             glm::mat4 MVP = P * V * M;
 
-            glUniform4f(colLoc, 0.1f, 0.7f, 1.0f, 0.2f);
+            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+            glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
 
             // Draw cube 2
-            M = glm::translate(glm::mat4(1), glm::vec3(0.2f, 1.65f, -1.3f));
+            M = glm::translate(glm::mat4(1), glm::vec3(0, 1.75f, -0.7f));
             M = glm::scale(M, glm::vec3(0.2f));
             M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
             MVP = P * V * M;
 
-            glUniform4f(colLoc, 0.1f, 0.7f, 1.0f, 1.0f);
+            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
             glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+            glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
 
             glBindFramebuffer(GL_FRAMEBUFFER, fbo);
             glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -377,7 +603,12 @@ int main() {
 
             glBindFramebuffer(GL_READ_FRAMEBUFFER, msaaFBO);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
-            glBlitFramebuffer(0, 0, W, H, 0, 0, W, H, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            glBlitFramebuffer(
+                0, 0, W, H,
+                0, 0, W, H,
+                GL_COLOR_BUFFER_BIT,
+                GL_NEAREST
+            );
 
             XrSwapchainImageReleaseInfo r{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
             xrReleaseSwapchainImage(sc, &r);
