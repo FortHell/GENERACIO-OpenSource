@@ -1,0 +1,9 @@
+# ninja log v6
+15	2842	7966003124068001	GENERACIO_autogen/timestamp	b7b202e7864dcec7
+15	2842	7966003124068001	GENERACIO_autogen/mocs_compilation.cpp	b7b202e7864dcec7
+15	2842	7966003124068001	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/GENERACIO_autogen/timestamp	b7b202e7864dcec7
+15	2842	7966003124068001	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/GENERACIO_autogen/mocs_compilation.cpp	b7b202e7864dcec7
+2847	5354	7966003124741180	CMakeFiles/GENERACIO.dir/GENERACIO_autogen/mocs_compilation.cpp.obj	6a1c627d641aeebb
+2854	5365	7966003124807491	CMakeFiles/GENERACIO.dir/HMDTile.cpp.obj	cc47ecdecb065fc7
+2850	5400	7966003124771523	CMakeFiles/GENERACIO.dir/main.cpp.obj	b913c181d3c3a168
+5401	5674	7966003150278365	GENERACIO.exe	db490454dcf5fd2f

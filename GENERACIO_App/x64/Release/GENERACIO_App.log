@@ -1,0 +1,24 @@
+﻿   Qt/MSBuild: 3.5.0.0
+  Reading Qt configuration (C:/vcpkg/installed/x64-windows/tools/Qt6/bin/qmake)
+   Qt: 6.9.1
+  uic GENERACIO_App.ui
+  rcc GENERACIO_App.qrc
+  moc main.cpp
+  moc HMDTile.h
+   RCC: Warning: No resources in 'C:\Users\User\source\repos\GENERACIO_Drivers\GENERACIO_App\GENERACIO_App.qrc'.
+  HMDTile.cpp
+  qrc_GENERACIO_App.cpp
+  main.cpp
+  moc_HMDTile.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 265 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  GENERACIO_App.vcxproj -> C:\Users\User\source\repos\GENERACIO_Drivers\x64\Release\GENERACIO_App.exe
+  Deploying Qt dependencies...
+EXEC : warning : Translations will not be available due to the following error.
+  Cannot open C:/vcpkg/installed/x64-windows/translations/Qt6/catalogs.json
+  Unknown options: no-angle, no-openssl.
+  
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(166,5): error MSB3073: The command ""C:\vcpkg\installed\x64-windows\tools\qt6\bin\windeployqt.exe" --no-opengl-sw --no-translations --no-angle --no-openssl "C:\Users\User\source\repos\GENERACIO_Drivers\x64\Release\GENERACIO_App.exe"
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(166,5): error MSB3073: :VCEnd" exited with code 1.
