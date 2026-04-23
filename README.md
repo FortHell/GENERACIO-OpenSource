@@ -14,7 +14,7 @@ You can also help develop the project by creating a pull request!
 
 ## Current progress
 + A lightweight, extensible OpenGL/OpenXR engine in C++ **(KI ENGINE)**
-+ More coming soon
++ An program meant to link together the engine, drivers and hardware **(GENERACIO App)**
 
 ## KI ENGINE
 OpenGL and OpenXR engine, all in C++.
