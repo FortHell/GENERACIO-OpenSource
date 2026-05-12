@@ -35,8 +35,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="vertex.glsl" />
-    <None Include="fragment.glsl" />
+    <None Include="fragment_lit.glsl" />
     <None Include="vertex_mirror.glsl" />
     <None Include="fragment_mirror.glsl" />
+    <None Include="fragment_unlit.glsl" />
   </ItemGroup>
 </Project>

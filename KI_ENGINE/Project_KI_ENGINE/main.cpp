@@ -135,7 +135,7 @@ static const float floorVerts[] = {
     -5.f, -0.1f,  5.f,     0.0f, 1.0f, 0.0f
 };
 
-static const uint16_t floorIdx[] = { 0, 1, 2, 2, 3, 0 };
+static const uint16_t floorIdx[] = { 0, 3, 2, 2, 1, 0 };
 
 // XR projection matrix
 glm::mat4 xrProj(const XrFovf& f) {
@@ -186,21 +186,40 @@ int main() {
     glfwSwapInterval(0);
 
     // Shaders
-    GLuint shp = loadShaderProgram("vertex.glsl", "fragment.glsl");
-    GLuint mvpLoc = glGetUniformLocation(shp, "mvp");
-    GLuint colLoc = glGetUniformLocation(shp, "objColor");
+    // Lit Shader
+    GLuint shp_lit = loadShaderProgram("vertex.glsl", "fragment_lit.glsl");
+    GLint successLit;
+    glGetProgramiv(shp_lit, GL_LINK_STATUS, &successLit);
+    if (!successLit) {
+        char infoLog[512];
+        glGetProgramInfoLog(shp_lit, 512, NULL, infoLog);
+        std::cout << "LIT SHADER ERROR: " << infoLog << std::endl;
+    }
+    GLuint mvpLoc_lit = glGetUniformLocation(shp_lit, "mvp");
+    GLuint colLoc_lit = glGetUniformLocation(shp_lit, "objColor");
+    GLuint modelLoc_lit = glGetUniformLocation(shp_lit, "model");
+    GLuint sunDirLoc = glGetUniformLocation(shp_lit, "sunDir");
+    GLuint sunColLoc = glGetUniformLocation(shp_lit, "sunColor");
 
+    // Unlit Shader
+    GLuint shp_unlit = loadShaderProgram("vertex.glsl", "fragment_unlit.glsl");
+    GLint successUnlit;
+    glGetProgramiv(shp_unlit, GL_LINK_STATUS, &successUnlit);
+    if (!successUnlit) {
+        char infoLog[512];
+        glGetProgramInfoLog(shp_unlit, 512, NULL, infoLog);
+        std::cout << "UNLIT SHADER ERROR: " << infoLog << std::endl;
+    }
+
+    GLuint mvpLoc_unlit = glGetUniformLocation(shp_unlit, "mvp");
+    GLuint colLoc_unlit = glGetUniformLocation(shp_unlit, "objColor");
+    GLuint modelLoc_unlit = glGetUniformLocation(shp_unlit, "model");
+
+    // Mirror shaders
     GLuint mirror = loadShaderProgram("vertex_mirror.glsl", "fragment_mirror.glsl");
     GLuint mirrorVAO;
     glGenVertexArrays(1, &mirrorVAO);
-
-    GLint success;
-    glGetProgramiv(shp, GL_LINK_STATUS, &success);
-    if (!success) {
-        char infoLog[512];
-        glGetProgramInfoLog(shp, 512, NULL, infoLog);
-        std::cout << "SHADER LINK ERROR: " << infoLog << std::endl;
-    }
+    glBindVertexArray(mirrorVAO);
 
     // Cube Mesh
     std::vector<Vertex> meshData = loadOBJ("cube.obj");
@@ -488,9 +507,6 @@ int main() {
             (rightHandLoc.locationFlags &
                 XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 
-        GLuint sunDirLoc = glGetUniformLocation(shp, "sunDir");
-        GLuint modelLoc = glGetUniformLocation(shp, "model");
-
         // Render eyes and also all objects in scene
         for (uint32_t eye = 0;eye < outCount;eye++) {
             uint32_t idx;
@@ -517,21 +533,23 @@ int main() {
                 glm::translate(glm::mat4(1), p) * glm::mat4_cast(q));
             glm::mat4 P = xrProj(views[eye].fov);
 
-            glUseProgram(shp);
-            glUniform3f(glGetUniformLocation(shp, "sunColor"), 1.0f, 0.95f, 0.8f);
+            glUseProgram(shp_lit);
+            glUniform3f(glGetUniformLocation(shp_lit, "sunColor"), 1.0f, 0.95f, 0.8f);
 
             // Draw floor
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
             glm::mat4 floorMVP = P * V * floorM;
 
-            glUniform3f(colLoc, 0.1f, 0.1f, 0.1f);
-            glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(floorMVP));
+            glUniform3f(colLoc_lit, 27 / 255.0f, 74 / 255.0f, 40 / 255.0f);
+            glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(floorMVP));
 
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(floorM));
+            glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(floorM));
             glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
 
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+            glUseProgram(shp_unlit);
 
             auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
                 {
@@ -552,16 +570,14 @@ int main() {
                     M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
                     glm::mat4 MVP = P * V * M;
 
-                    glUniform3fv(colLoc, 1, &color.x);
-                    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+                    glUniform3fv(colLoc_unlit, 1, &color.x);
+                    glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
 
-                    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
-
-                    glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+                    glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
 
                     glBindVertexArray(vao);
                     glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
-                };
+                 };
 
             if (leftValid)
                 drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
@@ -569,29 +585,43 @@ int main() {
             if (rightValid)
                 drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
 
-			// Draw cube 1
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0.4f, 1.45f, -1.3f));
-            M = glm::scale(M, glm::vec3(0.2f));
-            M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
+            glUseProgram(shp_unlit);
+
+            // Star or something?
+            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(35, 40, -50));
+            M = glm::scale(M, glm::vec3(2));
+            M = glm::rotate(M, (float)glfwGetTime() * 7.0f, glm::vec3(1, 1, 1));
             glm::mat4 MVP = P * V * M;
 
-            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
-            glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
-            glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
+            glUniform3f(colLoc_unlit, 252 / 255.0f, 224 / 255.0f, 40 / 255.0f);
+            glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
+            glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
 
-            // Draw cube 2
-            M = glm::translate(glm::mat4(1), glm::vec3(0, 1.75f, -0.7f));
-            M = glm::scale(M, glm::vec3(0.2f));
-            M = glm::rotate(M, (float)glfwGetTime() * 1.15f, glm::vec3(0.3, 1, 0.5));
+            // Draw UI bg
+            M = glm::translate(glm::mat4(1), glm::vec3(0, 1.6f, -11.0f));
+            M = glm::scale(M, glm::vec3(8, 5.5f, 0.01f));
             MVP = P * V * M;
 
-            glUniform3f(colLoc, 0.1f, 0.7f, 1.0f);
-            glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(MVP));
+            glUniform3f(colLoc_unlit, 5 / 255.0f , 5 / 255.0f, 5 / 255.0f);
+            glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
+            glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
+            glBindVertexArray(vao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+
+            glUseProgram(shp_lit);
+
+            // Draw cube 1
+            M = glm::translate(glm::mat4(1), glm::vec3(1.4f, 1.5f, -1.3f));
+            M = glm::scale(M, glm::vec3(0.2f));
+            M = glm::rotate(M, (float)glfwGetTime() * 0.9f, glm::vec3(-0.3, -1, -0.5));
+            MVP = P * V * M;
+
+            glUniform3f(colLoc_lit, 184 / 255.0f, 54 / 255.0f, 217 / 255.0f);
+            glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
             glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(M));
+            glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
 
