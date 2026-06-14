@@ -1,0 +1,11 @@
+# Hide Makefiles from language stats
+*Makefile linguist-vendored
+*.mk linguist-vendored
+
+# Hide CMake from language stats
+*.cmake linguist-vendored
+CMakeLists.txt linguist-vendored
+
+# Hide QMake / Qt Project files from language stats
+*.pro linguist-vendored
+*.stash linguist-vendored
