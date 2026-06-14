@@ -1,0 +1,19 @@
+# ninja log v6
+552	3112	7966687385276057	CMakeFiles/GENERACIO.dir/main.cpp.obj	128d99a496e06a28
+36	551	7966687380125458	GENERACIO_autogen/mocs_compilation.cpp	8cf6b9d8f5eb8779
+36	551	7966687380125458	GENERACIO_autogen/timestamp	8cf6b9d8f5eb8779
+36	551	7966687380125458	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/release/GENERACIO_autogen/timestamp	8cf6b9d8f5eb8779
+36	551	7966687380125458	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/release/GENERACIO_autogen/mocs_compilation.cpp	8cf6b9d8f5eb8779
+3113	3225	7966687410896565	GENERACIO.exe	399ceb25597c9dc2
+622	3125	7966003297448955	CMakeFiles/GENERACIO.dir/HMDTile.cpp.obj	5941472fec1ba6a8
+616	3135	7966003297387313	CMakeFiles/GENERACIO.dir/GENERACIO_autogen/mocs_compilation.cpp.obj	b928732a48fb1e5f
+21	43	7966692369023444	CMakeFiles/clean.additional	166bc7d0b2baee52
+43	53	7966692369248034	clean	8c45b54705a541e8
+32	594	7966692374776940	GENERACIO_autogen/timestamp	8cf6b9d8f5eb8779
+32	594	7966692374776940	GENERACIO_autogen/mocs_compilation.cpp	8cf6b9d8f5eb8779
+32	594	7966692374776940	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/release/GENERACIO_autogen/timestamp	8cf6b9d8f5eb8779
+32	594	7966692374776940	C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/release/GENERACIO_autogen/mocs_compilation.cpp	8cf6b9d8f5eb8779
+595	2914	7966692375359751	CMakeFiles/GENERACIO.dir/GENERACIO_autogen/mocs_compilation.cpp.obj	b928732a48fb1e5f
+602	2932	7966692375415229	CMakeFiles/GENERACIO.dir/HMDTile.cpp.obj	5941472fec1ba6a8
+598	3215	7966692375384914	CMakeFiles/GENERACIO.dir/main.cpp.obj	128d99a496e06a28
+3216	3323	7966692401554382	GENERACIO.exe	399ceb25597c9dc2

@@ -1,0 +1,5 @@
+C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/CMakeFiles/GENERACIO.dir
+C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/CMakeFiles/edit_cache.dir
+C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/CMakeFiles/rebuild_cache.dir
+C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/CMakeFiles/GENERACIO_autogen_timestamp_deps.dir
+C:/Users/User/source/repos/GENERACIO_Drivers/GENERACIO_App/out/build/debug/CMakeFiles/GENERACIO_autogen.dir
