@@ -1,6 +1,4 @@
 # GENERACIO-OpenSource
-VR/XR Tools Built from the Ground Up - Powering Future Software and Hardware
-
 ## Introduction to GENERACIO
 **GENERACIO** is a project that aims to make VR (primarily PCVR) more accessible.
 Here you can track my progress, from building my own VR game engine to developing VR hardware.
