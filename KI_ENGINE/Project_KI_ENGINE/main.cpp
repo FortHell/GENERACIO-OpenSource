@@ -178,6 +178,14 @@ int main() {
     GLFWwindow* win = glfwCreateWindow(100, 100, "KI ENGINE VR View", nullptr, nullptr);
     glfwMakeContextCurrent(win);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity,
+        GLsizei length, const GLchar* message, const void* userParam) {
+            if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+                std::cout << "GL DEBUG: " << message << std::endl;
+        }, nullptr);
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_FRAMEBUFFER_SRGB);
@@ -267,7 +275,7 @@ int main() {
     XrInstance inst;
     XrInstanceCreateInfo ici{ XR_TYPE_INSTANCE_CREATE_INFO };
     strcpy_s(ici.applicationInfo.applicationName, "KI ENGINE");
-	ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
+    ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
     const char* ext[] = { XR_KHR_OPENGL_ENABLE_EXTENSION_NAME };
     ici.enabledExtensionCount = 1;
     ici.enabledExtensionNames = ext;
@@ -396,14 +404,14 @@ int main() {
     const GLFWvidmode* vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
     // Bearable size for monitors
-	float aspectRatio = (float)W / (float)H;
+    float aspectRatio = (float)W / (float)H;
     int mirrorH = (int)std::floor(vidmode->height * 0.75f);
     int mirrorW = (int)std::floor(mirrorH * aspectRatio);
 
     // Helpful info
     std::cout << "\nPER EYE PROPERTIES\nDecimal Aspect Ratio: " << aspectRatio << "\n";
     std::cout << "Simplied Aspect Ratio: " << aspectRatio * 9 << ":9" << "\n";
-	std::cout << "VR Resolution: " << W << "x" << H << "\n";
+    std::cout << "VR Resolution: " << W << "x" << H << "\n";
     std::cout << "Window Resolution: " << mirrorW << "x" << mirrorH << "\n\n";
 
     // Resize to actual resolution
@@ -436,7 +444,7 @@ int main() {
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, W, H);
 
-	// Multisampled FBO (4x MSAA)
+    // Multisampled FBO (4x MSAA)
     GLuint msaaFBO, msaaColor, msaaDepth;
     glGenFramebuffers(1, &msaaFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
@@ -507,15 +515,15 @@ int main() {
             (rightHandLoc.locationFlags &
                 XR_SPACE_LOCATION_ORIENTATION_VALID_BIT);
 
+        uint32_t idx;
+        XrSwapchainImageAcquireInfo ac{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+        xrAcquireSwapchainImage(sc, &ac, &idx);
+        XrSwapchainImageWaitInfo wi{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+        wi.timeout = XR_INFINITE_DURATION;
+        xrWaitSwapchainImage(sc, &wi);
+
         // Render eyes and also all objects in scene
         for (uint32_t eye = 0;eye < outCount;eye++) {
-            uint32_t idx;
-            XrSwapchainImageAcquireInfo ac{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-            xrAcquireSwapchainImage(sc, &ac, &idx);
-            XrSwapchainImageWaitInfo wi{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
-            wi.timeout = XR_INFINITE_DURATION;
-            xrWaitSwapchainImage(sc, &wi);
-
             glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
             glViewport(0, 0, W, H);
             glClearColor(0.02f, 0.02f, 0.03f, 1);
@@ -549,8 +557,6 @@ int main() {
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-            glUseProgram(shp_unlit);
-
             auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
                 {
                     glm::quat q(
@@ -570,20 +576,14 @@ int main() {
                     M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
                     glm::mat4 MVP = P * V * M;
 
-                    glUniform3fv(colLoc_unlit, 1, &color.x);
-                    glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
+                    glUniform3fv(colLoc_lit, 1, &color.x);
+                    glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
 
-                    glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
+                    glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
 
                     glBindVertexArray(vao);
                     glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
-                 };
-
-            if (leftValid)
-                drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
-
-            if (rightValid)
-                drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
+                };
 
             glUseProgram(shp_unlit);
 
@@ -604,7 +604,7 @@ int main() {
             M = glm::scale(M, glm::vec3(8, 5.5f, 0.01f));
             MVP = P * V * M;
 
-            glUniform3f(colLoc_unlit, 5 / 255.0f , 5 / 255.0f, 5 / 255.0f);
+            glUniform3f(colLoc_unlit, 5 / 255.0f, 5 / 255.0f, 5 / 255.0f);
             glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
             glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
@@ -625,6 +625,12 @@ int main() {
             glBindVertexArray(vao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
 
+            if (leftValid)
+                drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
+
+            if (rightValid)
+                drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
+
             glBindFramebuffer(GL_FRAMEBUFFER, fbo);
             glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                 scImgs[idx].image, 0, eye);
@@ -640,9 +646,6 @@ int main() {
                 GL_NEAREST
             );
 
-            XrSwapchainImageReleaseInfo r{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-            xrReleaseSwapchainImage(sc, &r);
-
             lviews[eye].pose = views[eye].pose;
             lviews[eye].fov = views[eye].fov;
             lviews[eye].subImage.swapchain = sc;
@@ -650,6 +653,9 @@ int main() {
             lviews[eye].subImage.imageRect.extent = { W,H };
             lviews[eye].subImage.imageArrayIndex = eye;
         }
+
+        XrSwapchainImageReleaseInfo r{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+        xrReleaseSwapchainImage(sc, &r);
 
         // Submit
         XrCompositionLayerProjection layer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
