@@ -1,6 +1,9 @@
+# Yes, this file was made with AI
+
 # Hide Makefiles from language stats
-*Makefile linguist-vendored
+Makefile linguist-vendored
 *.mk linguist-vendored
+*.mak linguist-vendored
 
 # Hide CMake from language stats
 *.cmake linguist-vendored
@@ -9,3 +12,8 @@ CMakeLists.txt linguist-vendored
 # Hide QMake / Qt Project files from language stats
 *.pro linguist-vendored
 *.stash linguist-vendored
+
+# Also consider these common build files
+*.qmake linguist-vendored
+*.pri linguist-vendored
+Makefile.* linguist-vendored
