@@ -4,6 +4,7 @@
 Makefile linguist-vendored
 *.mk linguist-vendored
 *.mak linguist-vendored
+*.cmake linguist-vendored
 
 # Hide CMake from language stats
 *.cmake linguist-vendored
