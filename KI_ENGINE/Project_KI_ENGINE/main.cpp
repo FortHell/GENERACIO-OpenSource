@@ -275,7 +275,7 @@ int main() {
     XrInstance inst;
     XrInstanceCreateInfo ici{ XR_TYPE_INSTANCE_CREATE_INFO };
     strcpy_s(ici.applicationInfo.applicationName, "KI ENGINE");
-    ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
+	ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
     const char* ext[] = { XR_KHR_OPENGL_ENABLE_EXTENSION_NAME };
     ici.enabledExtensionCount = 1;
     ici.enabledExtensionNames = ext;
@@ -404,14 +404,14 @@ int main() {
     const GLFWvidmode* vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
     // Bearable size for monitors
-    float aspectRatio = (float)W / (float)H;
+	float aspectRatio = (float)W / (float)H;
     int mirrorH = (int)std::floor(vidmode->height * 0.75f);
     int mirrorW = (int)std::floor(mirrorH * aspectRatio);
 
     // Helpful info
     std::cout << "\nPER EYE PROPERTIES\nDecimal Aspect Ratio: " << aspectRatio << "\n";
     std::cout << "Simplied Aspect Ratio: " << aspectRatio * 9 << ":9" << "\n";
-    std::cout << "VR Resolution: " << W << "x" << H << "\n";
+	std::cout << "VR Resolution: " << W << "x" << H << "\n";
     std::cout << "Window Resolution: " << mirrorW << "x" << mirrorH << "\n\n";
 
     // Resize to actual resolution
@@ -444,7 +444,7 @@ int main() {
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, W, H);
 
-    // Multisampled FBO (4x MSAA)
+	// Multisampled FBO (4x MSAA)
     GLuint msaaFBO, msaaColor, msaaDepth;
     glGenFramebuffers(1, &msaaFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
@@ -557,34 +557,6 @@ int main() {
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-            auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
-                {
-                    glm::quat q(
-                        loc.pose.orientation.w,
-                        loc.pose.orientation.x,
-                        loc.pose.orientation.y,
-                        loc.pose.orientation.z
-                    );
-
-                    glm::vec3 p(
-                        loc.pose.position.x,
-                        loc.pose.position.y,
-                        loc.pose.position.z
-                    );
-
-                    glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
-                    M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
-                    glm::mat4 MVP = P * V * M;
-
-                    glUniform3fv(colLoc_lit, 1, &color.x);
-                    glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
-
-                    glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
-
-                    glBindVertexArray(vao);
-                    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
-                };
-
             glUseProgram(shp_unlit);
 
             // Star or something?
@@ -604,7 +576,7 @@ int main() {
             M = glm::scale(M, glm::vec3(8, 5.5f, 0.01f));
             MVP = P * V * M;
 
-            glUniform3f(colLoc_unlit, 5 / 255.0f, 5 / 255.0f, 5 / 255.0f);
+            glUniform3f(colLoc_unlit, 5 / 255.0f , 5 / 255.0f, 5 / 255.0f);
             glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
             glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
@@ -613,7 +585,7 @@ int main() {
             glUseProgram(shp_lit);
 
             // Draw cube 1
-            M = glm::translate(glm::mat4(1), glm::vec3(1.4f, 1.5f, -1.3f));
+            M = glm::translate(glm::mat4(1), glm::vec3(1.2f, 1.5f, -1.3f));
             M = glm::scale(M, glm::vec3(0.2f));
             M = glm::rotate(M, (float)glfwGetTime() * 0.9f, glm::vec3(-0.3, -1, -0.5));
             MVP = P * V * M;
@@ -624,6 +596,34 @@ int main() {
             glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
             glBindVertexArray(vao);
             glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+
+            auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
+            {
+                glm::quat q(
+                    loc.pose.orientation.w,
+                    loc.pose.orientation.x,
+                    loc.pose.orientation.y,
+                    loc.pose.orientation.z
+                );
+
+                glm::vec3 p(
+                    loc.pose.position.x,
+                    loc.pose.position.y,
+                    loc.pose.position.z
+                );
+
+                glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
+                M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
+                glm::mat4 MVP = P * V * M;
+
+                glUniform3fv(colLoc_lit, 1, &color.x);
+                glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
+
+                glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
+
+                glBindVertexArray(vao);
+                glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+            };
 
             if (leftValid)
                 drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
