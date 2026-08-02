@@ -55,7 +55,7 @@ GLuint loadShaderProgram(const std::string& vertPath, const std::string& fragPat
 }
 
 static const float nearZ = 0.1f;
-static const float farZ = 50.f;
+static const float farZ = 800.f;
 
 struct Vertex {
     glm::vec3 position;
@@ -143,8 +143,6 @@ glm::mat4 xrProj(const XrFovf& f) {
     float tanRight = tanf(f.angleRight);
     float tanUp = tanf(f.angleUp);
     float tanDown = tanf(f.angleDown);
-    const float nearZ = 0.1f;
-    const float farZ = 50.0f;
     const float tanWidth = tanRight - tanLeft;
     const float tanHeight = tanUp - tanDown;
 
@@ -250,6 +248,27 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
 
+    // Sphere Mesh
+    std::vector<Vertex> sphereMeshData = loadOBJ("sphere.obj");
+
+    std::cout << "Loaded OBJ: " << sphereMeshData.size() << " vertices." << std::endl;
+
+    GLuint sphereVao, sphereVbo;
+    glGenVertexArrays(1, &sphereVao);
+    glBindVertexArray(sphereVao);
+
+    glGenBuffers(1, &sphereVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, sphereVbo);
+    glBufferData(GL_ARRAY_BUFFER, sphereMeshData.size() * sizeof(Vertex), sphereMeshData.data(), GL_STATIC_DRAW);
+
+    // Position (Location 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+
+    // Normal (Location 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(1);
+
     // Floor Mesh
     GLuint fvao, fvbo, febo;
     glGenVertexArrays(1, &fvao);
@@ -270,6 +289,37 @@ int main() {
     glGenBuffers(1, &febo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, febo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(floorIdx), floorIdx, GL_STATIC_DRAW);
+
+    // Starfield struct
+    struct Star { glm::vec3 pos; float scale; };
+    std::vector<Star> stars;
+    srand((unsigned int)time(0));
+    int starCount = 10;
+
+    for (int i = 0; i < starCount; i++) {
+        glm::vec3 pos;
+        float scale;
+        bool overlapping;
+
+        do {
+            float x = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
+            float y = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
+            float z = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
+            scale = rand() % 125 + 10;
+            pos = glm::vec3(x, y, z);
+
+            overlapping = false;
+            for (const auto& other : stars) {
+                float minDist = scale + other.scale + 35;
+                if (glm::length(pos - other.pos) < minDist) {
+                    overlapping = true;
+                    break;
+                }
+            }
+        } while (overlapping);
+
+        stars.push_back({ pos, scale });
+    }
 
     // XR Instance
     XrInstance inst;
@@ -525,8 +575,9 @@ int main() {
         // Render eyes and also all objects in scene
         for (uint32_t eye = 0;eye < outCount;eye++) {
             glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
+            glEnable(GL_DEPTH_TEST);
             glViewport(0, 0, W, H);
-            glClearColor(0.02f, 0.02f, 0.03f, 1);
+            glClearColor(0.0f, 0.0f, 0.0f, 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glm::quat q(views[eye].pose.orientation.w,
@@ -542,10 +593,11 @@ int main() {
             glm::mat4 P = xrProj(views[eye].fov);
 
             glUseProgram(shp_lit);
-            glUniform3f(glGetUniformLocation(shp_lit, "sunColor"), 1.0f, 0.95f, 0.8f);
+            glUniform3f(glGetUniformLocation(shp_lit, "sunColor"), 2.0f, 1.9f, 1.6f);
 
             // Draw floor
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
+            floorM = glm::scale(floorM, glm::vec3(0.5f, 1.0f, 0.5f));
             glm::mat4 floorMVP = P * V * floorM;
 
             glUniform3f(colLoc_lit, 27 / 255.0f, 74 / 255.0f, 40 / 255.0f);
@@ -557,46 +609,24 @@ int main() {
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-            glUseProgram(shp_unlit);
-
-            // Star or something?
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(35, 40, -50));
-            M = glm::scale(M, glm::vec3(2));
-            M = glm::rotate(M, (float)glfwGetTime() * 7.0f, glm::vec3(1, 1, 1));
-            glm::mat4 MVP = P * V * M;
-
-            glUniform3f(colLoc_unlit, 252 / 255.0f, 224 / 255.0f, 40 / 255.0f);
-            glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
-            glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
-            glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
-
-            // Draw UI bg
-            M = glm::translate(glm::mat4(1), glm::vec3(0, 1.6f, -11.0f));
-            M = glm::scale(M, glm::vec3(8, 5.5f, 0.01f));
-            MVP = P * V * M;
-
-            glUniform3f(colLoc_unlit, 5 / 255.0f , 5 / 255.0f, 5 / 255.0f);
-            glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
-            glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
-            glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
-
             glUseProgram(shp_lit);
 
             // Draw cube 1
-            M = glm::translate(glm::mat4(1), glm::vec3(1.2f, 1.5f, -1.3f));
+            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0.6f, 1.5f, -1.3f));
             M = glm::scale(M, glm::vec3(0.2f));
-            M = glm::rotate(M, (float)glfwGetTime() * 0.9f, glm::vec3(-0.3, -1, -0.5));
-            MVP = P * V * M;
+            M = glm::rotate(M, (float)glfwGetTime() * 0.9f, glm::vec3(0, 1, 0));
+            glm::mat4 MVP = P * V * M;
 
             glUniform3f(colLoc_lit, 184 / 255.0f, 54 / 255.0f, 217 / 255.0f);
             glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
             glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
             glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
-            glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+            glBindVertexArray(sphereVao);
+            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
 
+            glUseProgram(shp_unlit);
+
+            // Hands / controllers
             auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
             {
                 glm::quat q(
@@ -613,16 +643,16 @@ int main() {
                 );
 
                 glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
-                M = glm::scale(M, glm::vec3(0.04f, 0.08f, 0.18f));
+                M = glm::scale(M, glm::vec3(0.05f, 0.05f, 0.05f));
                 glm::mat4 MVP = P * V * M;
 
-                glUniform3fv(colLoc_lit, 1, &color.x);
-                glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
+                glUniform3fv(colLoc_unlit, 1, &color.x);
+                glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
 
-                glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
+                glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
 
-                glBindVertexArray(vao);
-                glDrawArrays(GL_TRIANGLES, 0, (GLsizei)meshData.size());
+                glBindVertexArray(sphereVao);
+                glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
             };
 
             if (leftValid)
@@ -630,6 +660,21 @@ int main() {
 
             if (rightValid)
                 drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
+
+            glUseProgram(shp_lit);
+
+            // Starfield
+            for (const auto& star : stars) {
+                M = glm::translate(glm::mat4(1), star.pos);
+                M = glm::scale(M, glm::vec3(star.scale));
+                MVP = P * V * M;
+                glUniform3f(colLoc_lit, 255 / 255.f, 241 / 255.f, 138 / 255.f);
+                glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
+                glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
+                glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
+                glBindVertexArray(sphereVao);
+                glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
+            }
 
             glBindFramebuffer(GL_FRAMEBUFFER, fbo);
             glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
