@@ -17,7 +17,7 @@ You can also help develop the project by creating a pull request!
 ## KI ENGINE
 Serves as an OpenGL and OpenXR example VR game engine, can be built upon!
 
-![GIF of KI ENGINE example showcase](media/ki_engine.gif)
+![GIF of KI ENGINE example showcase](media/ki_engine.png)
 
 I recommend using **SteamVR** as the OpenXR runtime.
 If you don't have a VR headset, but still want to test the code, use a [Dummy HMD](https://github.com/username223/SteamVRNoHeadset).

@@ -160,9 +160,12 @@
   <ItemGroup>
     <None Include="fragment_lit.glsl" />
     <None Include="fragment_mirror.glsl" />
+    <None Include="fragment_planet.glsl" />
+    <None Include="fragment_stars.glsl" />
     <None Include="fragment_unlit.glsl" />
     <None Include="vertex.glsl" />
     <None Include="vertex_mirror.glsl" />
+    <None Include="vertex_stars.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
