@@ -11,9 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <cstring>
 #include <vector>
-#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -189,7 +187,7 @@ int main() {
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_CULL_FACE);
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     // Shaders
     // Lit Shader
@@ -217,15 +215,51 @@ int main() {
         std::cout << "UNLIT SHADER ERROR: " << infoLog << std::endl;
     }
 
+    // Background stars shader
+    GLuint shp_stars = loadShaderProgram("vertex_stars.glsl", "fragment_stars.glsl");
+    GLint successStars;
+    glGetProgramiv(shp_stars, GL_LINK_STATUS, &successStars);
+    if (!successStars) {
+        char infoLog[512];
+        glGetProgramInfoLog(shp_stars, 512, NULL, infoLog);
+        std::cout << "STARS SHADER ERROR: " << infoLog << std::endl;
+    }
+    GLint invVPLoc = glGetUniformLocation(shp_stars, "invViewProj");
+    GLint camPosLoc = glGetUniformLocation(shp_stars, "camPos");
+    GLint timeLoc = glGetUniformLocation(shp_stars, "uTime");
+
     GLuint mvpLoc_unlit = glGetUniformLocation(shp_unlit, "mvp");
     GLuint colLoc_unlit = glGetUniformLocation(shp_unlit, "objColor");
     GLuint modelLoc_unlit = glGetUniformLocation(shp_unlit, "model");
+
+    // Planets shader (frag / perlin noise)
+    GLuint shp_planet = loadShaderProgram("vertex.glsl", "fragment_planet.glsl");
+    GLint successPlanet;
+    glGetProgramiv(shp_planet, GL_LINK_STATUS, &successPlanet);
+    if (!successPlanet) {
+        char infoLog[512];
+        glGetProgramInfoLog(shp_planet, 512, NULL, infoLog);
+        std::cout << "PLANET SHADER ERROR: " << infoLog << std::endl;
+    }
+    GLint mvpLoc_planet = glGetUniformLocation(shp_planet, "mvp");
+    GLint modelLoc_planet = glGetUniformLocation(shp_planet, "model");
+    GLint sunDirLoc_planet = glGetUniformLocation(shp_planet, "sunDir");
+    GLint sunColLoc_planet = glGetUniformLocation(shp_planet, "sunColor");
+    GLint noiseScaleLoc = glGetUniformLocation(shp_planet, "noiseScale");
+    GLint noiseOffsetLoc = glGetUniformLocation(shp_planet, "noiseOffset");
+    GLint band1Loc = glGetUniformLocation(shp_planet, "bandColor1");
+    GLint band2Loc = glGetUniformLocation(shp_planet, "bandColor2");
+    GLint band3Loc = glGetUniformLocation(shp_planet, "bandColor3");
+    GLint band4Loc = glGetUniformLocation(shp_planet, "bandColor4");
 
     // Mirror shaders
     GLuint mirror = loadShaderProgram("vertex_mirror.glsl", "fragment_mirror.glsl");
     GLuint mirrorVAO;
     glGenVertexArrays(1, &mirrorVAO);
     glBindVertexArray(mirrorVAO);
+
+    GLuint starsVAO;
+    glGenVertexArrays(1, &starsVAO);
 
     // Cube Mesh
     std::vector<Vertex> meshData = loadOBJ("cube.obj");
@@ -290,13 +324,58 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, febo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(floorIdx), floorIdx, GL_STATIC_DRAW);
 
-    // Starfield struct
-    struct Star { glm::vec3 pos; float scale; };
-    std::vector<Star> stars;
-    srand((unsigned int)time(0));
-    int starCount = 10;
+    // Preset color palettes for planet surfaces
+    struct Palette { glm::vec3 c1, c2, c3, c4; float noise; };
+    static const std::vector<Palette> planetPalettes = {
+        // Green with clouds
+        {
+            glm::vec3(4 / 255.f, 133 / 255.f, 25 / 255.f),
+            glm::vec3(14 / 255.f, 87 / 255.f, 27 / 255.f),
+            glm::vec3(118 / 255.f, 145 / 255.f, 122 / 255.f),
+            glm::vec3(255 / 255.f, 255 / 255.f, 255 / 255.f),
+            float(3.5f)
+        },
+        // Green with rocky formations
+        {
+            glm::vec3(0 / 255.f, 97 / 255.f, 16 / 255.f),
+            glm::vec3(37 / 255.f, 161 / 255.f, 0 / 255.f),
+            glm::vec3(20 / 255.f, 20 / 255.f, 20 / 255.f),
+            glm::vec3(1 / 255.f, 1 / 255.f, 1 / 255.f),
+            float(2.f)
+        },
+        // Red with clouds
+        {
+            glm::vec3(255 / 255.f, 255 / 255.f, 255 / 255.f),
+            glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
+            glm::vec3(189 / 255.f, 111 / 255.f, 111 / 255.f),
+            glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
+            float(4.f)
+        },
+        // Icy
+        {
+            glm::vec3(0 / 255.f, 0 / 255.f, 0 / 255.f),
+            glm::vec3(189 / 255.f, 189 / 255.f, 189 / 255.f),
+            glm::vec3(85 / 255.f, 151 / 255.f, 170 / 255.f),
+            glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
+            float(1.f)
+        },
+        // Red / lava
+        {
+            glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
+            glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
+            glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
+            glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
+            float(1.5f)
+        },
+    };
 
-    for (int i = 0; i < starCount; i++) {
+    // Planets struct
+    struct Planet { glm::vec3 pos; float scale; glm::vec3 band1, band2, band3, band4; float noise; };
+    std::vector<Planet> planets;
+    srand((unsigned int)time(0));
+    int planetCount = 10;
+
+    for (int i = 0; i < planetCount; i++) {
         glm::vec3 pos;
         float scale;
         bool overlapping;
@@ -309,7 +388,7 @@ int main() {
             pos = glm::vec3(x, y, z);
 
             overlapping = false;
-            for (const auto& other : stars) {
+            for (const auto& other : planets) {
                 float minDist = scale + other.scale + 35;
                 if (glm::length(pos - other.pos) < minDist) {
                     overlapping = true;
@@ -318,14 +397,15 @@ int main() {
             }
         } while (overlapping);
 
-        stars.push_back({ pos, scale });
+        const Palette& pal = planetPalettes[rand() % planetPalettes.size()];
+        planets.push_back({ pos, scale, pal.c1, pal.c2, pal.c3, pal.c4, pal.noise });
     }
 
     // XR Instance
     XrInstance inst;
     XrInstanceCreateInfo ici{ XR_TYPE_INSTANCE_CREATE_INFO };
     strcpy_s(ici.applicationInfo.applicationName, "KI ENGINE");
-	ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
+    ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
     const char* ext[] = { XR_KHR_OPENGL_ENABLE_EXTENSION_NAME };
     ici.enabledExtensionCount = 1;
     ici.enabledExtensionNames = ext;
@@ -454,14 +534,14 @@ int main() {
     const GLFWvidmode* vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
     // Bearable size for monitors
-	float aspectRatio = (float)W / (float)H;
+    float aspectRatio = (float)W / (float)H;
     int mirrorH = (int)std::floor(vidmode->height * 0.75f);
     int mirrorW = (int)std::floor(mirrorH * aspectRatio);
 
     // Helpful info
     std::cout << "\nPER EYE PROPERTIES\nDecimal Aspect Ratio: " << aspectRatio << "\n";
     std::cout << "Simplied Aspect Ratio: " << aspectRatio * 9 << ":9" << "\n";
-	std::cout << "VR Resolution: " << W << "x" << H << "\n";
+    std::cout << "VR Resolution: " << W << "x" << H << "\n";
     std::cout << "Window Resolution: " << mirrorW << "x" << mirrorH << "\n\n";
 
     // Resize to actual resolution
@@ -494,7 +574,7 @@ int main() {
     glBindRenderbuffer(GL_RENDERBUFFER, depth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, W, H);
 
-	// Multisampled FBO (4x MSAA)
+    // Multisampled FBO (4x MSAA)
     GLuint msaaFBO, msaaColor, msaaDepth;
     glGenFramebuffers(1, &msaaFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
@@ -592,6 +672,22 @@ int main() {
                 glm::translate(glm::mat4(1), p) * glm::mat4_cast(q));
             glm::mat4 P = xrProj(views[eye].fov);
 
+            // Background stars
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+
+            glUseProgram(shp_stars);
+            glm::mat4 invVP = glm::inverse(P * V);
+            glUniformMatrix4fv(invVPLoc, 1, GL_FALSE, glm::value_ptr(invVP));
+            glUniform3f(camPosLoc, p.x, p.y, p.z);
+            glUniform1f(timeLoc, (float)glfwGetTime());
+
+            glBindVertexArray(starsVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE);
+
             glUseProgram(shp_lit);
             glUniform3f(glGetUniformLocation(shp_lit, "sunColor"), 2.0f, 1.9f, 1.6f);
 
@@ -600,7 +696,7 @@ int main() {
             floorM = glm::scale(floorM, glm::vec3(0.5f, 1.0f, 0.5f));
             glm::mat4 floorMVP = P * V * floorM;
 
-            glUniform3f(colLoc_lit, 27 / 255.0f, 74 / 255.0f, 40 / 255.0f);
+            glUniform3f(colLoc_lit, 57 / 255.0f, 9 / 255.0f, 84 / 255.0f);
             glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(floorMVP));
 
             glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(floorM));
@@ -609,51 +705,36 @@ int main() {
             glBindVertexArray(fvao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-            glUseProgram(shp_lit);
-
-            // Draw cube 1
-            glm::mat4 M = glm::translate(glm::mat4(1), glm::vec3(0.6f, 1.5f, -1.3f));
-            M = glm::scale(M, glm::vec3(0.2f));
-            M = glm::rotate(M, (float)glfwGetTime() * 0.9f, glm::vec3(0, 1, 0));
-            glm::mat4 MVP = P * V * M;
-
-            glUniform3f(colLoc_lit, 184 / 255.0f, 54 / 255.0f, 217 / 255.0f);
-            glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
-            glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
-            glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
-            glBindVertexArray(sphereVao);
-            glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
-
             glUseProgram(shp_unlit);
 
             // Hands / controllers
             auto drawHand = [&](const XrSpaceLocation& loc, glm::vec3 color)
-            {
-                glm::quat q(
-                    loc.pose.orientation.w,
-                    loc.pose.orientation.x,
-                    loc.pose.orientation.y,
-                    loc.pose.orientation.z
-                );
+                {
+                    glm::quat q(
+                        loc.pose.orientation.w,
+                        loc.pose.orientation.x,
+                        loc.pose.orientation.y,
+                        loc.pose.orientation.z
+                    );
 
-                glm::vec3 p(
-                    loc.pose.position.x,
-                    loc.pose.position.y,
-                    loc.pose.position.z
-                );
+                    glm::vec3 p(
+                        loc.pose.position.x,
+                        loc.pose.position.y,
+                        loc.pose.position.z
+                    );
 
-                glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
-                M = glm::scale(M, glm::vec3(0.05f, 0.05f, 0.05f));
-                glm::mat4 MVP = P * V * M;
+                    glm::mat4 M = glm::translate(glm::mat4(1), p) * glm::mat4_cast(q);
+                    M = glm::scale(M, glm::vec3(0.05f, 0.05f, 0.05f));
+                    glm::mat4 MVP = P * V * M;
 
-                glUniform3fv(colLoc_unlit, 1, &color.x);
-                glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
+                    glUniform3fv(colLoc_unlit, 1, &color.x);
+                    glUniformMatrix4fv(mvpLoc_unlit, 1, GL_FALSE, glm::value_ptr(MVP));
 
-                glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
+                    glUniformMatrix4fv(modelLoc_unlit, 1, GL_FALSE, glm::value_ptr(M));
 
-                glBindVertexArray(sphereVao);
-                glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
-            };
+                    glBindVertexArray(sphereVao);
+                    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
+                };
 
             if (leftValid)
                 drawHand(leftHandLoc, { 0.2f, 0.9f, 0.2f });
@@ -661,17 +742,24 @@ int main() {
             if (rightValid)
                 drawHand(rightHandLoc, { 0.9f, 0.2f, 0.2f });
 
-            glUseProgram(shp_lit);
+            glUseProgram(shp_planet);
 
-            // Starfield
-            for (const auto& star : stars) {
-                M = glm::translate(glm::mat4(1), star.pos);
-                M = glm::scale(M, glm::vec3(star.scale));
-                MVP = P * V * M;
-                glUniform3f(colLoc_lit, 255 / 255.f, 241 / 255.f, 138 / 255.f);
-                glUniformMatrix4fv(mvpLoc_lit, 1, GL_FALSE, glm::value_ptr(MVP));
-                glUniform3f(sunDirLoc, -0.5f, -1.0f, -0.3f);
-                glUniformMatrix4fv(modelLoc_lit, 1, GL_FALSE, glm::value_ptr(M));
+            // Planets
+            for (const auto& planet : planets) {
+                glm::mat4 M = glm::translate(glm::mat4(1), planet.pos);
+                M = glm::scale(M, glm::vec3(planet.scale));
+                glm::mat4 MVP = P * V * M;
+                glUniformMatrix4fv(mvpLoc_planet, 1, GL_FALSE, glm::value_ptr(MVP));
+                glUniformMatrix4fv(modelLoc_planet, 1, GL_FALSE, glm::value_ptr(M));
+                glUniform3f(sunDirLoc_planet, -0.5f, -1.0f, -0.3f);
+                glUniform3f(sunColLoc_planet, 2.0f, 1.9f, 1.6f);
+                glUniform1f(noiseScaleLoc, planet.noise);
+                glUniform3f(noiseOffsetLoc, planet.pos.x * 0.01f, planet.pos.y * 0.01f, planet.pos.z * 0.01f);
+                glUniform3fv(band1Loc, 1, glm::value_ptr(planet.band1));
+                glUniform3fv(band2Loc, 1, glm::value_ptr(planet.band2));
+                glUniform3fv(band3Loc, 1, glm::value_ptr(planet.band3));
+                glUniform3fv(band4Loc, 1, glm::value_ptr(planet.band4));
+
                 glBindVertexArray(sphereVao);
                 glDrawArrays(GL_TRIANGLES, 0, (GLsizei)sphereMeshData.size());
             }

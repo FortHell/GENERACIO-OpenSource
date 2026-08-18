@@ -39,5 +39,8 @@
     <None Include="vertex_mirror.glsl" />
     <None Include="fragment_mirror.glsl" />
     <None Include="fragment_unlit.glsl" />
+    <None Include="fragment_stars.glsl" />
+    <None Include="vertex_stars.glsl" />
+    <None Include="fragment_planet.glsl" />
   </ItemGroup>
 </Project>
