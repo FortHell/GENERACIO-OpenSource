@@ -51,3 +51,4 @@ cd vcpkg
 6. Go to where you cloned the project files, go inside the KI ENGINE folder, and select "Project_KI_ENGINE.sln".
 7. Don't forget to change the config (near top of the window) from Debug x86 to Release x64.
 8. Make sure you have SteamVR installed and your headset plugged in before running any code! Edit `main.cpp` - that's the main script.
+/
