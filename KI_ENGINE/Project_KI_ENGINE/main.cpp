@@ -209,7 +209,7 @@ XrPath handSubactionPaths[2];
 int main() {
     // Load Simpleloader
     simpleloader::setLoadHandler([](int status) {
-        if (status == 0) std::cout << "Loaded OK\n";
+        if (status == 0) std::cout << "Simpleloader OK\n";
     });
 
     simpleloader::checkIfLoaded();
