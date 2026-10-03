@@ -18,7 +18,7 @@ Serves as an OpenGL and OpenXR VR engine, can be built upon!
 
 ![GIF of KI ENGINE example showcase](media/ki_engine.png)
 
-I recommend using **SteamVR** as the OpenXR runtime on Windows, and Monado with Envision on Linux.
+I recommend using **SteamVR** as the OpenXR runtime on Windows, and Monado (via Envision) or WiVRn on Linux.
 If you don't have a VR headset, but still want to test the code, use a [Dummy HMD](https://github.com/username223/SteamVRNoHeadset) on SteamVR (Windows) and use [these settings](media/envision_1.png) on Envision.
 If you're using Visual Studio, make sure to set it to **Release x64** before building!
 
