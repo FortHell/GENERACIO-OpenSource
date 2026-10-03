@@ -34,6 +34,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "simpleloader.h"
+
 std::string loadShader(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
@@ -205,6 +207,23 @@ XrSpace rightHandSpace = XR_NULL_HANDLE;
 XrPath handSubactionPaths[2];
 
 int main() {
+    // Load Simpleloader
+    simpleloader::setLoadHandler([](int status) {
+        if (status == 0) std::cout << "Loaded OK\n";
+    });
+
+    simpleloader::checkIfLoaded();
+
+    int planetCount = 0;
+    std::string sphereObjName = "";
+
+    simpleloader::setSceneHandler([&](int count, const std::string& name) {
+        planetCount = count;
+        sphereObjName = name;
+    });
+
+    simpleloader::sceneConfig();
+
     // GL window
     #ifndef _WIN32
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
@@ -328,7 +347,9 @@ int main() {
     glEnableVertexAttribArray(1);
 
     // Sphere Mesh
-    std::vector<Vertex> sphereMeshData = loadOBJ("sphere.obj");
+    char arr[sphereObjName.length() + 1];
+    strcpy(arr, sphereObjName.c_str());
+    std::vector<Vertex> sphereMeshData = loadOBJ(arr);
 
     std::cout << "Loaded OBJ: " << sphereMeshData.size() << " vertices." << std::endl;
 
@@ -378,7 +399,7 @@ int main() {
             glm::vec3(14 / 255.f, 87 / 255.f, 27 / 255.f),
             glm::vec3(118 / 255.f, 145 / 255.f, 122 / 255.f),
             glm::vec3(255 / 255.f, 255 / 255.f, 255 / 255.f),
-            float(3.5f)
+            3.5f
         },
         // Green with rocky formations
         {
@@ -386,7 +407,7 @@ int main() {
             glm::vec3(37 / 255.f, 161 / 255.f, 0 / 255.f),
             glm::vec3(20 / 255.f, 20 / 255.f, 20 / 255.f),
             glm::vec3(1 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(2.f)
+            2.f
         },
         // Red with clouds
         {
@@ -394,7 +415,7 @@ int main() {
             glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
             glm::vec3(189 / 255.f, 111 / 255.f, 111 / 255.f),
             glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(4.f)
+            4.f
         },
         // Icy
         {
@@ -402,7 +423,7 @@ int main() {
             glm::vec3(189 / 255.f, 189 / 255.f, 189 / 255.f),
             glm::vec3(85 / 255.f, 151 / 255.f, 170 / 255.f),
             glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(1.f)
+            1.f
         },
         // Red / lava
         {
@@ -410,7 +431,7 @@ int main() {
             glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
             glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
             glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
-            float(1.5f)
+            1.5f
         },
     };
 
@@ -418,7 +439,8 @@ int main() {
     struct Planet { glm::vec3 pos; float scale; glm::vec3 band1, band2, band3, band4; float noise; };
     std::vector<Planet> planets;
     srand((unsigned int)time(0));
-    int planetCount = 10;
+
+    // planetCount assigned by simpleloader
 
     for (int i = 0; i < planetCount; i++) {
         glm::vec3 pos;

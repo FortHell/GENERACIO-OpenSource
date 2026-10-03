@@ -10,7 +10,10 @@ find_package(OpenXR CONFIG REQUIRED)
 find_package(X11 REQUIRED)
 find_package(OpenGL REQUIRED)
 
-add_executable(KI_ENGINE main.cpp)
+add_executable(KI_ENGINE
+    main.cpp
+    simpleloader.cpp
+)
 
 target_link_libraries(KI_ENGINE PRIVATE
     glm::glm
