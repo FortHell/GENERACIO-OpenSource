@@ -10,8 +10,8 @@ All of the code is open-source (MIT) and free to use in your own project.
 Contributions are welcome. Fork the repo, and submit a PR.
  
 ## Current progress
-+ A lightweight, purpose-built OpenGL/OpenXR engine in C++: **(KI ENGINE)**
-+ A program that links the engine, drivers and hardware together: **(GENERACIO App)**
++ A lightweight, purpose-built OpenGL/OpenXR engine in C++ **(KI ENGINE)**
++ A program that links the engine, drivers and hardware together **(GENERACIO App)**
 
 ## KI ENGINE
 Serves as an OpenGL and OpenXR VR engine, can be built upon!
@@ -23,6 +23,10 @@ If you don't have a VR headset, but still want to test the code, use the [Null D
 If you're using Visual Studio, make sure to set it to **Release x64** before building!
 
 ### Installation
+Download the latest release from [here](https://github.com/FortHell/GENERACIO-OpenSource/releases/latest).
+
+### Setup
+
 This guide is for Windows 11. Though, most of these will work on Linux, with minor differences.
 
 1. Clone the repository: `git clone https://github.com/FortHell/GENERACIO-OpenSource.git`
@@ -41,4 +45,5 @@ cd vcpkg
 
 3. Open the project. If you're using Visual Studio, open the solution file instead.
 4. Don't forget to change the config to Release x64.
-5. Make sure you have SteamVR or Monado + Envision installed and your headset plugged in before running any code! Edit `main.cpp` - that's the main script.
+5. Make sure you have SteamVR or Monado + Envision installed and your headset plugged in before running any code!
+6. Edit `simpleloader.cpp` for basic configurations, or edit `main.cpp` to modify everything else.
