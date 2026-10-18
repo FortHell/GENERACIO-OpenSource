@@ -73,7 +73,7 @@ GLuint loadShaderProgram(const std::string& vertPath, const std::string& fragPat
 }
 
 static const float nearZ = 0.1f;
-static const float farZ = 800.f;
+static const float farZ = 1200.f;
 
 struct Vertex {
     glm::vec3 position;
@@ -346,7 +346,7 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
 
-    // Sphere Mesh
+    // Sphere Mesh (with Simpleloader)
     char arr[sphereObjName.length() + 1];
     strcpy(arr, sphereObjName.c_str());
     std::vector<Vertex> sphereMeshData = loadOBJ(arr);
@@ -440,7 +440,7 @@ int main() {
     std::vector<Planet> planets;
     srand((unsigned int)time(0));
 
-    // planetCount assigned by simpleloader
+    // planetCount assigned by Simpleloader
 
     for (int i = 0; i < planetCount; i++) {
         glm::vec3 pos;
@@ -448,24 +448,30 @@ int main() {
         bool overlapping;
 
         do {
-            float x = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
-            float y = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
-            float z = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
+            float x = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
+            float y = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
+            float z = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
             scale = rand() % 125 + 10;
             pos = glm::vec3(x, y, z);
 
-            overlapping = false;
+            overlapping = glm::length(pos) < 300.f;
             for (const auto& other : planets) {
-                float minDist = scale + other.scale + 35;
-                if (glm::length(pos - other.pos) < minDist) {
+                if (overlapping) break;
+                if (glm::length(pos - other.pos) < scale + other.scale + 150)
                     overlapping = true;
-                    break;
-                }
             }
         } while (overlapping);
 
+        auto jitter = [](glm::vec3 c, float amt) {
+            glm::vec3 r(
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt,
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt,
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt);
+            return glm::clamp(c + r, 0.f, 1.f);
+        };
+
         const Palette& pal = planetPalettes[rand() % planetPalettes.size()];
-        planets.push_back({ pos, scale, pal.c1, pal.c2, pal.c3, pal.c4, pal.noise });
+        planets.push_back({ pos, scale, jitter(pal.c1, .2f), jitter(pal.c2, .2f), jitter(pal.c3, .2f), jitter(pal.c4, .2f), pal.noise});
     }
 
     // XR Instance
@@ -507,7 +513,7 @@ int main() {
 
     XrPath profile;
     xrStringToPath(inst,
-        "/interaction_profiles/valve/index_controller",
+        "/interaction_profiles/oculus/touch_controller",
         &profile);
 
     XrPath leftGripPose, rightGripPose;
@@ -771,7 +777,7 @@ int main() {
 
             // Draw floor
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
-            floorM = glm::scale(floorM, glm::vec3(0.5f, 1.0f, 0.5f));
+            floorM = glm::scale(floorM, glm::vec3(0.1f, 1.0f, 0.1f));
             glm::mat4 floorMVP = P * V * floorM;
 
             glUniform3f(colLoc_lit, 57 / 255.0f, 9 / 255.0f, 84 / 255.0f);
@@ -830,7 +836,7 @@ int main() {
                 glUniformMatrix4fv(mvpLoc_planet, 1, GL_FALSE, glm::value_ptr(MVP));
                 glUniformMatrix4fv(modelLoc_planet, 1, GL_FALSE, glm::value_ptr(M));
                 glUniform3f(sunDirLoc_planet, -0.5f, -1.0f, -0.3f);
-                glUniform3f(sunColLoc_planet, 2.0f, 1.9f, 1.6f);
+                glUniform3f(sunColLoc_planet, 2.0f * 1.3f, 1.9f * 1.3f, 1.6f * 1.3f);
                 glUniform1f(noiseScaleLoc, planet.noise);
                 glUniform3f(noiseOffsetLoc, planet.pos.x * 0.01f, planet.pos.y * 0.01f, planet.pos.z * 0.01f);
                 glUniform3fv(band1Loc, 1, glm::value_ptr(planet.band1));
