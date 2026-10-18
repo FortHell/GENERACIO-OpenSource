@@ -189,7 +189,7 @@ public:
             };
 
         addTitleBtn("ui/window_minimize.png", &QMainWindow::showMinimized);
-        addTitleBtn("ui/window_maximize.png", [=]() { isMaximized() ? showNormal() : showMaximized(); });
+        addTitleBtn("ui/window_maximize.png", [=, this]() { isMaximized() ? showNormal() : showMaximized(); });
         addTitleBtn("ui/window_close.png", &QMainWindow::close);
 
         mainLayout->addWidget(titleBar);
@@ -294,7 +294,7 @@ private:
 
         QHBoxLayout* header = new QHBoxLayout();
         QPushButton* backBtn = createBackButton();
-        connect(backBtn, &QPushButton::clicked, this, [=]() {
+        connect(backBtn, &QPushButton::clicked, this, [=, this]() {
             stopCameraCheck();
             stacked->setCurrentIndex(0);
             });
@@ -325,7 +325,7 @@ private:
             "QPushButton { background-color: #333; color: #666; border-radius: 6px; font-weight: bold; font-size: 12pt; }"
             "QPushButton:enabled { background-color: #00aaff; color: white; }"
         );
-        connect(nextBtn, &QPushButton::clicked, this, [=]() {
+        connect(nextBtn, &QPushButton::clicked, this, [=, this]() {
             stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
@@ -338,7 +338,7 @@ private:
         devskipBtn->setStyleSheet(
             "QPushButton { background-color: #381717; color: #ffffff; border-radius: 6px; font-weight: bold; font-size: 12pt; }"
         );
-        connect(devskipBtn, &QPushButton::clicked, this, [=]() {
+        connect(devskipBtn, &QPushButton::clicked, this, [=, this]() {
             stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
@@ -427,7 +427,7 @@ private:
                 selection-background-color: #1e3a4f;
             }
         )");
-        connect(resBox, &QComboBox::currentTextChanged, this, [=](const QString& val) {
+        connect(resBox, &QComboBox::currentTextChanged, this, [=, this](const QString& val) {
             saveDeviceSetting("resolution", val);
             });
         rows->addWidget(createDeviceRow("Per-eye resolution", resBox));
@@ -437,7 +437,7 @@ private:
         hzBox->addItems({ "60Hz", "90Hz", "120Hz" });
         hzBox->setCurrentText(trackingHz);
         hzBox->setStyleSheet(resBox->styleSheet());
-        connect(hzBox, &QComboBox::currentTextChanged, this, [=](const QString& val) {
+        connect(hzBox, &QComboBox::currentTextChanged, this, [=, this](const QString& val) {
             saveDeviceSetting("tracking_hz", val);
             });
         rows->addWidget(createDeviceRow("Tracking frequency", hzBox));
@@ -449,7 +449,7 @@ private:
         deviceDot = dot;
         QTimer* camTimer = new QTimer(page);
         camTimer->setInterval(1000);
-        connect(camTimer, &QTimer::timeout, this, [=]() {
+        connect(camTimer, &QTimer::timeout, this, [=, this]() {
             const auto cameras = QMediaDevices::videoInputs();
             bool found = false;
             for (const auto& cam : cameras) {
@@ -574,9 +574,16 @@ private:
 
         connect(vrCheckTimer, &QTimer::timeout, this, [=]() {
             QProcess proc;
-            proc.start("tasklist", { "/FI", "IMAGENAME eq vrserver.exe", "/NH" });
-            proc.waitForFinished(200);
-            bool running = proc.readAllStandardOutput().contains("vrserver.exe");
+            
+            #ifdef Q_OS_WIN
+                proc.start("tasklist", { "/FI", "IMAGENAME eq vrserver.exe", "/NH" });
+                proc.waitForFinished(200);
+                bool running = proc.readAllStandardOutput().contains("vrserver.exe");
+            #else
+                proc.start("pgrep", { "-x", "vrserver" });
+                proc.waitForFinished(200);
+                bool running = (proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0);
+            #endif
 
             if (running && !uptimeTicker->isActive()) {
                 elapsed->start();
@@ -637,7 +644,7 @@ private:
         contentStack->addWidget(settingsPageMain);
 
         // Nav logic
-        auto selectNav = [=](QPushButton* active, int index) {
+        auto selectNav = [=, this](QPushButton* active, int index) {
             for (auto* b : { btnHome, btnDevices, btnSettings })
                 b->setChecked(false);
             active->setChecked(true);
@@ -647,7 +654,7 @@ private:
         connect(btnHome, &QPushButton::clicked, this, [=]() { selectNav(btnHome, 0); });
         connect(btnDevices, &QPushButton::clicked, this, [=]() { selectNav(btnDevices, 1); });
         connect(btnSettings, &QPushButton::clicked, this, [=]() { selectNav(btnSettings, 2); });
-        connect(btnBackToStart, &QPushButton::clicked, this, [=]() {
+        connect(btnBackToStart, &QPushButton::clicked, this, [=, this]() {
             resetSetup();
             stacked->setCurrentIndex(0);
             });
@@ -699,15 +706,14 @@ private slots:
 
 protected:
     void mousePressEvent(QMouseEvent* event) override {
-        if (event->button() == Qt::LeftButton && event->pos().y() < 45) {
-            dragging = true;
-            dragStart = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        if (event->button() == Qt::LeftButton && event->position().y() < 45) {
+            if (windowHandle())
+                windowHandle()->startSystemMove();
+            event->accept();
+            return;
         }
+        QMainWindow::mousePressEvent(event);
     }
-    void mouseMoveEvent(QMouseEvent* event) override {
-        if (dragging) move(event->globalPosition().toPoint() - dragStart);
-    }
-    void mouseReleaseEvent(QMouseEvent*) override { dragging = false; }
 
 private:
     QStackedWidget* stacked;
