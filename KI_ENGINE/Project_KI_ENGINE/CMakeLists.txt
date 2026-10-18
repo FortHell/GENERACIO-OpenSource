@@ -7,8 +7,11 @@ find_package(glm CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(OpenXR CONFIG REQUIRED)
-find_package(X11 REQUIRED)
 find_package(OpenGL REQUIRED)
+
+if(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)
+endif()
 
 add_executable(KI_ENGINE
     main.cpp
@@ -19,8 +22,10 @@ target_link_libraries(KI_ENGINE PRIVATE
     glm::glm
     glfw
     glad::glad
-    OpenXR::headers
     OpenXR::openxr_loader
-    X11::X11
     OpenGL::GL
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(KI_ENGINE PRIVATE X11::X11)
+endif()

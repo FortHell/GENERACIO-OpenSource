@@ -347,9 +347,7 @@ int main() {
     glEnableVertexAttribArray(1);
 
     // Sphere Mesh (with Simpleloader)
-    char arr[sphereObjName.length() + 1];
-    strcpy(arr, sphereObjName.c_str());
-    std::vector<Vertex> sphereMeshData = loadOBJ(arr);
+    std::vector<Vertex> sphereMeshData = loadOBJ(sphereObjName.c_str());
 
     std::cout << "Loaded OBJ: " << sphereMeshData.size() << " vertices." << std::endl;
 
