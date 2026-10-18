@@ -1,9 +1,22 @@
-#define XR_USE_PLATFORM_WIN32
-#define XR_USE_GRAPHICS_API_OPENGL
+#ifndef _WIN32
+    // Linux X11 and XWayland
+    #define XR_USE_PLATFORM_XLIB
+    #define XR_USE_GRAPHICS_API_OPENGL
+    #include <X11/Xlib.h>
+#endif
+#ifdef _WIN32
+    // Windows
+    #define XR_USE_PLATFORM_WIN32
+    #define XR_USE_GRAPHICS_API_OPENGL
+    #include <Windows.h>
+#endif
 
-#include <Windows.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#ifndef _WIN32
+    #include <GL/glx.h>
+#endif
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -12,9 +25,16 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <string>
+#include <charconv>
+#include <string_view>
+#include <array>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "simpleloader.h"
 
 std::string loadShader(const std::string& path) {
     std::ifstream file(path);
@@ -53,12 +73,52 @@ GLuint loadShaderProgram(const std::string& vertPath, const std::string& fragPat
 }
 
 static const float nearZ = 0.1f;
-static const float farZ = 800.f;
+static const float farZ = 1200.f;
 
 struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;
 };
+
+struct FaceIndex {
+    int pos = 0;
+    int norm = 0;
+};
+
+int parseIntField(std::string_view field) {
+    int value = 0;
+
+    if (field.empty()) {
+        return 0;
+    }
+
+    auto result = std::from_chars(field.data(), field.data() + field.size(), value);
+
+    if (result.ec != std::errc{}) {
+        return 0;
+    }
+    else {
+        return value;
+    }
+}
+
+FaceIndex parseFaceToken(std::string_view token) {
+    std::array<std::string_view, 3> fields{};
+
+    for (auto& field : fields) {
+        auto slash = token.find('/');
+        if (slash == std::string_view::npos) {
+            field = token;
+            break;
+        }
+        else {
+            field = token.substr(0, slash);
+            token.remove_prefix(slash + 1);
+        }
+    }
+
+    return { parseIntField(fields[0]), parseIntField(fields[2]) };
+}
 
 std::vector<Vertex> loadOBJ(const char* path) {
     std::vector<glm::vec3> temp_vertices;
@@ -83,39 +143,22 @@ std::vector<Vertex> loadOBJ(const char* path) {
             temp_normals.push_back(n);
         }
         else if (type == "f") {
-            std::vector<std::pair<int, int>> faceVerts; // {vIdx, nIdx}
+            std::vector<FaceIndex> faceVerts;
 
             std::string vertexData;
             while (ss >> vertexData) {
-                int vIdx = 0, tIdx = 0, nIdx = 0;
-
-                if (sscanf_s(vertexData.c_str(), "%d/%d/%d", &vIdx, &tIdx, &nIdx) == 3) {
-                    // v/vt/vn
-                }
-                else if (sscanf_s(vertexData.c_str(), "%d//%d", &vIdx, &nIdx) == 2) {
-                    // v//vn
-                }
-                else if (sscanf_s(vertexData.c_str(), "%d/%d", &vIdx, &tIdx) == 2) {
-                    // v/vt (no normal)
-                    nIdx = 0;
-                }
-                else {
-                    sscanf_s(vertexData.c_str(), "%d", &vIdx);
-                    // v only
-                }
-
-                faceVerts.push_back({ vIdx, nIdx });
+                faceVerts.push_back(parseFaceToken(vertexData));
             }
 
             // Fan triangulation for quads and ngons
             for (size_t i = 1; i + 1 < faceVerts.size(); i++) {
-                auto emit = [&](std::pair<int, int> vi) {
-                    glm::vec3 pos = temp_vertices[vi.first - 1];
-                    glm::vec3 nrm = vi.second > 0
-                        ? temp_normals[vi.second - 1]
+                auto emit = [&](FaceIndex vi) {
+                    glm::vec3 pos = temp_vertices[vi.pos - 1];
+                    glm::vec3 nrm = vi.norm > 0
+                        ? temp_normals[vi.norm - 1]
                         : glm::vec3(0, 1, 0);
                     out_vertices.push_back({ pos, nrm });
-                    };
+                };
                 emit(faceVerts[0]);
                 emit(faceVerts[i]);
                 emit(faceVerts[i + 1]);
@@ -164,7 +207,28 @@ XrSpace rightHandSpace = XR_NULL_HANDLE;
 XrPath handSubactionPaths[2];
 
 int main() {
+    // Load Simpleloader
+    simpleloader::setLoadHandler([](int status) {
+        if (status == 0) std::cout << "Simpleloader OK\n";
+    });
+
+    simpleloader::checkIfLoaded();
+
+    int planetCount = 0;
+    std::string sphereObjName = "";
+
+    simpleloader::setSceneHandler([&](int count, const std::string& name) {
+        planetCount = count;
+        sphereObjName = name;
+    });
+
+    simpleloader::sceneConfig();
+
     // GL window
+    #ifndef _WIN32
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    #endif
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -282,8 +346,8 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glEnableVertexAttribArray(1);
 
-    // Sphere Mesh
-    std::vector<Vertex> sphereMeshData = loadOBJ("sphere.obj");
+    // Sphere Mesh (with Simpleloader)
+    std::vector<Vertex> sphereMeshData = loadOBJ(sphereObjName.c_str());
 
     std::cout << "Loaded OBJ: " << sphereMeshData.size() << " vertices." << std::endl;
 
@@ -333,7 +397,7 @@ int main() {
             glm::vec3(14 / 255.f, 87 / 255.f, 27 / 255.f),
             glm::vec3(118 / 255.f, 145 / 255.f, 122 / 255.f),
             glm::vec3(255 / 255.f, 255 / 255.f, 255 / 255.f),
-            float(3.5f)
+            3.5f
         },
         // Green with rocky formations
         {
@@ -341,7 +405,7 @@ int main() {
             glm::vec3(37 / 255.f, 161 / 255.f, 0 / 255.f),
             glm::vec3(20 / 255.f, 20 / 255.f, 20 / 255.f),
             glm::vec3(1 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(2.f)
+            2.f
         },
         // Red with clouds
         {
@@ -349,7 +413,7 @@ int main() {
             glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
             glm::vec3(189 / 255.f, 111 / 255.f, 111 / 255.f),
             glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(4.f)
+            4.f
         },
         // Icy
         {
@@ -357,7 +421,7 @@ int main() {
             glm::vec3(189 / 255.f, 189 / 255.f, 189 / 255.f),
             glm::vec3(85 / 255.f, 151 / 255.f, 170 / 255.f),
             glm::vec3(255 / 255.f, 1 / 255.f, 1 / 255.f),
-            float(1.f)
+            1.f
         },
         // Red / lava
         {
@@ -365,7 +429,7 @@ int main() {
             glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
             glm::vec3(189 / 255.f, 15 / 255.f, 15 / 255.f),
             glm::vec3(250 / 255.f, 94 / 255.f, 32 / 255.f),
-            float(1.5f)
+            1.5f
         },
     };
 
@@ -373,7 +437,8 @@ int main() {
     struct Planet { glm::vec3 pos; float scale; glm::vec3 band1, band2, band3, band4; float noise; };
     std::vector<Planet> planets;
     srand((unsigned int)time(0));
-    int planetCount = 10;
+
+    // planetCount assigned by Simpleloader
 
     for (int i = 0; i < planetCount; i++) {
         glm::vec3 pos;
@@ -381,30 +446,36 @@ int main() {
         bool overlapping;
 
         do {
-            float x = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
-            float y = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
-            float z = ((rand() % 201) + 300.f) * (rand() % 2 == 0 ? 1.0f : -1.0f);
+            float x = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
+            float y = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
+            float z = (rand() / (float)RAND_MAX * 2.f - 1.f) * 500.f;
             scale = rand() % 125 + 10;
             pos = glm::vec3(x, y, z);
 
-            overlapping = false;
+            overlapping = glm::length(pos) < 300.f;
             for (const auto& other : planets) {
-                float minDist = scale + other.scale + 35;
-                if (glm::length(pos - other.pos) < minDist) {
+                if (overlapping) break;
+                if (glm::length(pos - other.pos) < scale + other.scale + 150)
                     overlapping = true;
-                    break;
-                }
             }
         } while (overlapping);
 
+        auto jitter = [](glm::vec3 c, float amt) {
+            glm::vec3 r(
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt,
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt,
+                (rand() / (float)RAND_MAX * 2.f - 1.f) * amt);
+            return glm::clamp(c + r, 0.f, 1.f);
+        };
+
         const Palette& pal = planetPalettes[rand() % planetPalettes.size()];
-        planets.push_back({ pos, scale, pal.c1, pal.c2, pal.c3, pal.c4, pal.noise });
+        planets.push_back({ pos, scale, jitter(pal.c1, .2f), jitter(pal.c2, .2f), jitter(pal.c3, .2f), jitter(pal.c4, .2f), pal.noise});
     }
 
     // XR Instance
     XrInstance inst;
     XrInstanceCreateInfo ici{ XR_TYPE_INSTANCE_CREATE_INFO };
-    strcpy_s(ici.applicationInfo.applicationName, "KI ENGINE");
+    std::snprintf(ici.applicationInfo.applicationName, sizeof(ici.applicationInfo.applicationName), "KI ENGINE");
     ici.applicationInfo.apiVersion = XR_API_VERSION_1_0; // IMPORTANT! SteamVR only supports 1.0
     const char* ext[] = { XR_KHR_OPENGL_ENABLE_EXTENSION_NAME };
     ici.enabledExtensionCount = 1;
@@ -414,8 +485,8 @@ int main() {
 
     // --- Action Set ---
     XrActionSetCreateInfo asci{ XR_TYPE_ACTION_SET_CREATE_INFO };
-    strcpy_s(asci.actionSetName, "gameplay");
-    strcpy_s(asci.localizedActionSetName, "Gameplay");
+    std::snprintf(asci.actionSetName, sizeof(asci.actionSetName), "gameplay");
+    std::snprintf(asci.localizedActionSetName, sizeof(asci.localizedActionSetName), "Gameplay");
     asci.priority = 0;
     xrCreateActionSet(inst, &asci, &actionSet);
 
@@ -425,8 +496,8 @@ int main() {
 
     XrActionCreateInfo aci{ XR_TYPE_ACTION_CREATE_INFO };
     aci.actionType = XR_ACTION_TYPE_POSE_INPUT;
-    strcpy_s(aci.actionName, "hand_pose");
-    strcpy_s(aci.localizedActionName, "Hand Pose");
+    std::snprintf(aci.actionName, sizeof(aci.actionName), "hand_pose");
+    std::snprintf(aci.localizedActionName, sizeof(aci.localizedActionName), "Hand Pose");
     aci.countSubactionPaths = 2;
     aci.subactionPaths = handSubactionPaths;
 
@@ -440,7 +511,7 @@ int main() {
 
     XrPath profile;
     xrStringToPath(inst,
-        "/interaction_profiles/valve/index_controller",
+        "/interaction_profiles/oculus/touch_controller",
         &profile);
 
     XrPath leftGripPose, rightGripPose;
@@ -474,9 +545,20 @@ int main() {
     reqFn(inst, sysId, &req);
 
     // Bind current GL context
-    XrGraphicsBindingOpenGLWin32KHR gb{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
-    gb.hDC = wglGetCurrentDC();
-    gb.hGLRC = wglGetCurrentContext();
+    #ifdef _WIN32
+        XrGraphicsBindingOpenGLWin32KHR gb{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
+        gb.hDC = wglGetCurrentDC();
+        gb.hGLRC = wglGetCurrentContext();
+    #endif
+        
+    #ifndef _WIN32
+        XrGraphicsBindingOpenGLXlibKHR gb{ XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR };
+        gb.xDisplay    = glXGetCurrentDisplay();
+        gb.visualid    = 0;
+        gb.glxFBConfig = None;
+        gb.glxDrawable = glXGetCurrentDrawable();
+        gb.glxContext  = glXGetCurrentContext();
+    #endif
 
     // Session
     XrSession sess;
@@ -693,7 +775,7 @@ int main() {
 
             // Draw floor
             glm::mat4 floorM = glm::translate(glm::mat4(1), glm::vec3(0, 0.01f, 0));
-            floorM = glm::scale(floorM, glm::vec3(0.5f, 1.0f, 0.5f));
+            floorM = glm::scale(floorM, glm::vec3(0.1f, 1.0f, 0.1f));
             glm::mat4 floorMVP = P * V * floorM;
 
             glUniform3f(colLoc_lit, 57 / 255.0f, 9 / 255.0f, 84 / 255.0f);
@@ -752,7 +834,7 @@ int main() {
                 glUniformMatrix4fv(mvpLoc_planet, 1, GL_FALSE, glm::value_ptr(MVP));
                 glUniformMatrix4fv(modelLoc_planet, 1, GL_FALSE, glm::value_ptr(M));
                 glUniform3f(sunDirLoc_planet, -0.5f, -1.0f, -0.3f);
-                glUniform3f(sunColLoc_planet, 2.0f, 1.9f, 1.6f);
+                glUniform3f(sunColLoc_planet, 2.0f * 1.3f, 1.9f * 1.3f, 1.6f * 1.3f);
                 glUniform1f(noiseScaleLoc, planet.noise);
                 glUniform3f(noiseOffsetLoc, planet.pos.x * 0.01f, planet.pos.y * 0.01f, planet.pos.z * 0.01f);
                 glUniform3fv(band1Loc, 1, glm::value_ptr(planet.band1));
