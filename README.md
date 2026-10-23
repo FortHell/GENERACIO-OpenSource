@@ -1,9 +1,9 @@
-# GENERACIO-OpenSource
-## Introduction to GENERACIO
-**GENERACIO** is a project that aims to make VR (primarily PCVR) more accessible.
-This is the open-source version of the project.
+<img src="media/generacio_logo.png" height="140">
 
-## Introduction to GENERACIO-OpenSource
+# GENERACIO-OpenSource
+**GENERACIO** is a project that aims to make VR (primarily PCVR) more accessible.
+
+## Introduction
 This repository contains all the tools I've been working on for my project **GENERACIO**.
 All of the code is open-source (MIT) and free to use in your own project.
 
