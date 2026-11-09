@@ -8,7 +8,7 @@
 #include <QDesktopServices>
 #include <QProcess>
 #include <QElapsedTimer>
-#include "HMDTile.h"
+#include "HMDTile.hpp"
 
 // --- Scan Line Overlay ---
 class ScanLineOverlay : public QWidget {

@@ -1,4 +1,4 @@
-#include "simpleloader.h"
+#include "simpleloader.hpp"
 
 #include <iostream>
 #include <string>
