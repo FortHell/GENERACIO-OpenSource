@@ -1,6 +1,6 @@
 ﻿#include <QtWidgets>
-#include <QMediaDevices>
-#include <QCameraDevice>
+//#include <QMediaDevices>
+//#include <QCameraDevice>
 #include <QTimer>
 #include <QSettings>
 #include <QPainter>
@@ -295,7 +295,7 @@ private:
         QHBoxLayout* header = new QHBoxLayout();
         QPushButton* backBtn = createBackButton();
         connect(backBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             stacked->setCurrentIndex(0);
             });
         header->addWidget(backBtn);
@@ -326,7 +326,7 @@ private:
             "QPushButton:enabled { background-color: #00aaff; color: white; }"
         );
         connect(nextBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
             stacked->setCurrentWidget(mainScreen);
@@ -339,7 +339,7 @@ private:
             "QPushButton { background-color: #381717; color: #ffffff; border-radius: 6px; font-weight: bold; font-size: 12pt; }"
         );
         connect(devskipBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
             stacked->setCurrentWidget(mainScreen);
@@ -445,6 +445,7 @@ private:
         outer->addLayout(rows);
         outer->addStretch();
 
+        /*
         // --- Camera check timer (updates dot + status label) ---
         deviceDot = dot;
         QTimer* camTimer = new QTimer(page);
@@ -468,7 +469,7 @@ private:
             QString deviceName = loadDeviceName();
             nameLbl->setText(deviceName);
             });
-        camTimer->start();
+        camTimer->start();*/
 
         return page;
     }
@@ -670,9 +671,10 @@ private slots:
         statusText->setText("Step 1: Please connect the USB Camera to your PC.");
         nextBtn->setEnabled(false);
         stacked->setCurrentWidget(settingsPage);
-        startCameraCheck();
+        //startCameraCheck();
     }
 
+    /*
     void checkCamera() {
         if (cameraFound) return;
         const auto cameras = QMediaDevices::videoInputs();
@@ -702,7 +704,7 @@ private slots:
 
     void stopCameraCheck() {
         if (cameraCheckTimer) cameraCheckTimer->stop();
-    }
+    }*/
 
 protected:
     void mousePressEvent(QMouseEvent* event) override {

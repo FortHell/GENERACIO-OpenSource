@@ -6,7 +6,9 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Multimedia)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets 
+#Multimedia
+)
 
 add_executable(GENERACIO
     main.cpp
@@ -21,5 +23,5 @@ add_custom_command(TARGET GENERACIO POST_BUILD
 target_link_libraries(GENERACIO PRIVATE
     Qt6::Core
     Qt6::Widgets
-    Qt6::Multimedia
+    #Qt6::Multimedia
 )
