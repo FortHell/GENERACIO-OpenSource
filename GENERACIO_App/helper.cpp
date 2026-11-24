@@ -3,6 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <utility>
+
 #include "helper.hpp"
 
 namespace helper {
@@ -64,7 +67,7 @@ std::string readValue(const std::string& fname, const std::string& data) {
         return modline;
     }
 
-    return "Error!";
+    return "ERR";
 }
 
 std::vector<std::string> readAllValues(const std::string& fname) {
@@ -151,6 +154,89 @@ std::vector<std::string> readAllKeys(const std::string& fname) {
     }
 
     return v;
+}
+
+std::vector<std::pair<std::string, std::chrono::steady_clock::time_point>> timerV;
+
+void startTimer(const std::string& workerName) {
+    bool success = true;
+
+    for (auto i : timerV) {
+        if (i.first == workerName) {
+            success = false;
+            break;
+        }
+    }
+
+    if (success) {
+        std::pair<std::string, std::chrono::steady_clock::time_point> p = { workerName, std::chrono::steady_clock::now() };
+        timerV.push_back(p);
+
+        std::cout << "Timer (" << workerName << ") started.\n";
+    }
+    else {
+        std::cout << "ERR! Timer (" << workerName << ") was not started.\n";
+    }
+}
+
+void stopTimer(const std::string& workerName) {
+    bool success = false;
+
+    for (size_t i = 0; i < timerV.size(); ++i) {
+        if (timerV[i].first == workerName) {
+            timerV.erase(timerV.begin() + i);
+            success = true;
+            break;
+        }
+    }
+
+    if (success) {
+        std::cout << "Timer (" << workerName << ") stopped.\n";
+    }
+    else {
+        std::cout << "ERR! Timer (" << workerName << ") was not found.\n";
+    }
+}
+
+long long elapsedTimer(const std::string& workerName) {
+    bool success = false;
+    std::chrono::steady_clock::time_point workerTime;
+
+    for (auto i : timerV) {
+        if (i.first == workerName) {
+            workerTime = i.second;
+            success = true;
+            break;
+        }
+    }
+
+    if (success) {
+        auto now = std::chrono::steady_clock::now();
+        std::cout << "Timer (" << workerName << ") read.\n";
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now - workerTime).count();
+    }
+    else {
+        std::cout << "ERR! Timer (" << workerName << ") was not read.\n";
+        return -1;
+    }
+}
+
+int checkProcess(const std::string& procName) {
+    #if defined(_WIN32)
+        if (std::system(("tasklist /FI \"IMAGENAME eq " + procName + ".exe\" /NH | find /I \"" + procName + ".exe\" > NUL").c_str()) == 0) {
+            return 0;
+        }
+        else {
+            return 1;
+        }
+    #else
+        if (std::system(("pgrep -x " + procName + " > /dev/null").c_str()) == 0) {
+            return 0;
+        }
+        else {
+            return 1;
+        }
+    #endif
 }
 
 }

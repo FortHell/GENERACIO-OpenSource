@@ -575,17 +575,14 @@ private:
             });
 
         connect(vrCheckTimer, &QTimer::timeout, this, [=]() {
-            QProcess proc;
-            
-            #ifdef Q_OS_WIN
-                proc.start("tasklist", { "/FI", "IMAGENAME eq vrserver.exe", "/NH" });
-                proc.waitForFinished(200);
-                bool running = proc.readAllStandardOutput().contains("vrserver.exe");
-            #else
-                proc.start("pgrep", { "-x", "vrserver" });
-                proc.waitForFinished(200);
-                bool running = (proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0);
-            #endif
+            bool running = false;
+
+            if (helper::checkProcess("vrserver") == 0) {
+                running = true;
+            }
+            else {
+                running = false;
+            }
 
             if (running && !uptimeTicker->isActive()) {
                 elapsed->start();
