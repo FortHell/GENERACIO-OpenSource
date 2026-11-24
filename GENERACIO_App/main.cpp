@@ -9,6 +9,7 @@
 #include <QProcess>
 #include <QElapsedTimer>
 #include "HMDTile.hpp"
+#include "helper.hpp"
 
 // --- Scan Line Overlay ---
 class ScanLineOverlay : public QWidget {
@@ -609,7 +610,8 @@ private:
             launchBtn->setEnabled(false);
             uptimeLabel->setStyleSheet("color: #555; font-size: 11pt; font-family: monospace;");
             uptimeLabel->setText("waiting for SteamVR...");
-            QDesktopServices::openUrl(QUrl("steam://run/250820"));
+            // Open SteamVR (URL)
+            helper::openUrl("steam://run/250820");
             vrCheckTimer->start();
             });
 

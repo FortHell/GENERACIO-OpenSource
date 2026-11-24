@@ -3,6 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include "helper.hpp"
+
+namespace helper {
 
 void openUrl(const std::string& url) {
     #if defined(_WIN32)
@@ -150,21 +153,4 @@ std::vector<std::string> readAllKeys(const std::string& fname) {
     return v;
 }
 
-int main() {
-    //openUrl("steam://run/250820");
-    /*
-    std::string key;
-    std::getline(std::cin, key);
-    std::cout << readValue("example.json", key) << "\n";
-    */
-    std::vector<std::string> resKey = readAllKeys("resolutions.json");
-    std::vector<std::string> resVal = readAllValues("resolutions.json");
-
-    for (const auto& i : resKey) {
-        std::cout << i << "\n";
-    }
-
-    for (const auto& i : resVal) {
-        std::cout << i << "\n";
-    }
 }

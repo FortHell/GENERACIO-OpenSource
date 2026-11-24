@@ -13,6 +13,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Widgets
 add_executable(GENERACIO
     main.cpp
     HMDTile.cpp
+    helper.cpp
 )
 
 add_custom_command(TARGET GENERACIO POST_BUILD

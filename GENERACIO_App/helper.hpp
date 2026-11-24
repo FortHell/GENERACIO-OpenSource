@@ -1,0 +1,10 @@
+#pragma once
+#include <string>
+#include <vector>
+
+namespace helper {
+    void openUrl(const std::string& url);
+    std::string readValue(const std::string& fname, const std::string& data);
+    std::vector<std::string> readAllValues(const std::string& fname);
+    std::vector<std::string> readAllKeys(const std::string& fname);
+}
