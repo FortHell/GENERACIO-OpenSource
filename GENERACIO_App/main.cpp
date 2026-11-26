@@ -1,6 +1,6 @@
 ﻿#include <QtWidgets>
-#include <QMediaDevices>
-#include <QCameraDevice>
+//#include <QMediaDevices>
+//#include <QCameraDevice>
 #include <QTimer>
 #include <QSettings>
 #include <QPainter>
@@ -8,7 +8,8 @@
 #include <QDesktopServices>
 #include <QProcess>
 #include <QElapsedTimer>
-#include "HMDTile.h"
+#include "HMDTile.hpp"
+#include "helper.hpp"
 
 // --- Scan Line Overlay ---
 class ScanLineOverlay : public QWidget {
@@ -295,7 +296,7 @@ private:
         QHBoxLayout* header = new QHBoxLayout();
         QPushButton* backBtn = createBackButton();
         connect(backBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             stacked->setCurrentIndex(0);
             });
         header->addWidget(backBtn);
@@ -326,7 +327,7 @@ private:
             "QPushButton:enabled { background-color: #00aaff; color: white; }"
         );
         connect(nextBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
             stacked->setCurrentWidget(mainScreen);
@@ -339,7 +340,7 @@ private:
             "QPushButton { background-color: #381717; color: #ffffff; border-radius: 6px; font-weight: bold; font-size: 12pt; }"
         );
         connect(devskipBtn, &QPushButton::clicked, this, [=, this]() {
-            stopCameraCheck();
+            //stopCameraCheck();
             markSetupComplete();
             saveDeviceName(selectedName);
             stacked->setCurrentWidget(mainScreen);
@@ -445,6 +446,7 @@ private:
         outer->addLayout(rows);
         outer->addStretch();
 
+        /*
         // --- Camera check timer (updates dot + status label) ---
         deviceDot = dot;
         QTimer* camTimer = new QTimer(page);
@@ -468,7 +470,7 @@ private:
             QString deviceName = loadDeviceName();
             nameLbl->setText(deviceName);
             });
-        camTimer->start();
+        camTimer->start();*/
 
         return page;
     }
@@ -573,17 +575,14 @@ private:
             });
 
         connect(vrCheckTimer, &QTimer::timeout, this, [=]() {
-            QProcess proc;
-            
-            #ifdef Q_OS_WIN
-                proc.start("tasklist", { "/FI", "IMAGENAME eq vrserver.exe", "/NH" });
-                proc.waitForFinished(200);
-                bool running = proc.readAllStandardOutput().contains("vrserver.exe");
-            #else
-                proc.start("pgrep", { "-x", "vrserver" });
-                proc.waitForFinished(200);
-                bool running = (proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0);
-            #endif
+            bool running = false;
+
+            if (helper::checkProcess("vrserver") == 0) {
+                running = true;
+            }
+            else {
+                running = false;
+            }
 
             if (running && !uptimeTicker->isActive()) {
                 elapsed->start();
@@ -608,7 +607,8 @@ private:
             launchBtn->setEnabled(false);
             uptimeLabel->setStyleSheet("color: #555; font-size: 11pt; font-family: monospace;");
             uptimeLabel->setText("waiting for SteamVR...");
-            QDesktopServices::openUrl(QUrl("steam://run/250820"));
+            // Open SteamVR (URL)
+            helper::openUrl("steam://run/250820");
             vrCheckTimer->start();
             });
 
@@ -670,9 +670,10 @@ private slots:
         statusText->setText("Step 1: Please connect the USB Camera to your PC.");
         nextBtn->setEnabled(false);
         stacked->setCurrentWidget(settingsPage);
-        startCameraCheck();
+        //startCameraCheck();
     }
 
+    /*
     void checkCamera() {
         if (cameraFound) return;
         const auto cameras = QMediaDevices::videoInputs();
@@ -702,7 +703,7 @@ private slots:
 
     void stopCameraCheck() {
         if (cameraCheckTimer) cameraCheckTimer->stop();
-    }
+    }*/
 
 protected:
     void mousePressEvent(QMouseEvent* event) override {

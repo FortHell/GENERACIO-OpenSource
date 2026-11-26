@@ -34,7 +34,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "simpleloader.h"
+#include "simpleloader.hpp"
 
 std::string loadShader(const std::string& path) {
     std::ifstream file(path);

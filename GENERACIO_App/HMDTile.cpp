@@ -1,4 +1,4 @@
-﻿#include "HMDTile.h"
+﻿#include "HMDTile.hpp"
 
 HMDTile::HMDTile(const QString& name, QWidget* parent)
     : QPushButton(parent), m_name(name)
