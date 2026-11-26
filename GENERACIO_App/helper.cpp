@@ -239,4 +239,22 @@ int checkProcess(const std::string& procName) {
     #endif
 }
 
+void openProgram(const std::string& path, bool runInBg) {
+    if (path.empty()) {
+        std::cout << "Couldn't open program: empty path\n";
+        return;
+    }
+
+    #if defined(_WIN32)
+        // Soon
+    #else
+        std::string begin = "./";
+        std::string end = "&";
+
+        if (!runInBg) end = "";
+        if (path[0] == '/' || path.substr(0, 2) == "./") begin = "";
+        std::system(("chmod +x \"" + begin + path + "\" && \"" + begin + path + "\" " + end).c_str());
+    #endif
+}
+
 }

@@ -11,4 +11,5 @@ namespace helper {
     void stopTimer(const std::string& workerName);
     long long elapsedTimer(const std::string& workerName);
     int checkProcess(const std::string& procName);
+    void openProgram(const std::string& path, bool runInBg = true);
 }
